@@ -60,3 +60,40 @@ Important: When modifying core agent behavior such as instructions, tool descrip
 You can make use of the LiveKit CLI (`lk`) for various tasks, with user approval. Installation instructions are available at https://docs.livekit.io/home/cli if needed.
 
 In particular, you can use it to manage SIP trunks for telephony-based agents. Refer to `lk sip --help` for more information.
+
+## Deploying to LiveKit Cloud
+
+**IMPORTANT: Do NOT use `git push` for deployment.** This project deploys to LiveKit Cloud using the LiveKit CLI.
+
+### Deployment Command
+
+```bash
+lk agent deploy
+```
+
+This is the ONLY command needed to deploy changes to production. It reads configuration from `livekit.toml`.
+
+### What happens when you deploy
+
+1. **Build** - CLI uploads code and builds container from Dockerfile
+2. **Deploy** - New instances launch alongside existing ones
+3. **Route** - New sessions go to new instances
+4. **Graceful shutdown** - Old instances finish active sessions (up to 1 hour)
+5. **Autoscale** - New instances scale based on demand
+
+### Other useful commands
+
+| Command | Description |
+|---------|-------------|
+| `lk agent status` | Check agent status, replica count |
+| `lk agent logs` | Stream live logs from deployed agent |
+| `lk agent rollback` | Rollback to previous version |
+| `lk agent versions` | List all deployed versions |
+| `lk agent restart` | Restart the agent |
+
+### Configuration
+
+The `livekit.toml` file contains deployment config:
+- `subdomain` - Your LiveKit Cloud project
+- `agent.id` - Your agent's unique ID
+- `agent.name` - Display name for the agent

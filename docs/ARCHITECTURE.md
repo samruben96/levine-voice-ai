@@ -1,0 +1,573 @@
+# Architecture Documentation
+
+This document describes the architecture of the Harry Levine Insurance Voice Agent, including system components, data flow, routing logic, and state management.
+
+---
+
+## Table of Contents
+
+- [System Overview](#system-overview)
+- [Agent Architecture](#agent-architecture)
+- [Data Flow](#data-flow)
+- [Routing Logic](#routing-logic)
+- [Call Intent Categories](#call-intent-categories)
+- [Staff Directory Integration](#staff-directory-integration)
+- [Conversation State Diagram](#conversation-state-diagram)
+- [Error Handling](#error-handling)
+- [Security Considerations](#security-considerations)
+
+---
+
+## System Overview
+
+The Harry Levine Insurance Voice Agent is a voice AI system built on the LiveKit Agents framework. It serves as an automated front-desk receptionist that handles incoming calls, collects caller information, and routes calls to the appropriate staff member.
+
+### Core Components
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| Speech-to-Text (STT) | AssemblyAI | Converts caller speech to text |
+| Large Language Model (LLM) | GPT-4.1-mini | Processes intent and generates responses |
+| Text-to-Speech (TTS) | Cartesia Sonic-3 | Converts agent responses to speech |
+| Voice Activity Detection (VAD) | Silero | Detects when caller is speaking |
+| Turn Detection | LiveKit Multilingual | Manages conversation turn-taking |
+| Noise Cancellation | LiveKit BVC | Removes background noise (telephony-optimized) |
+
+### Key Features
+
+- **Multi-agent workflow**: Specialized sub-agents handle specific call types
+- **Alpha-split routing**: Calls routed based on business/last name first letter
+- **Ring group support**: Multiple agents can be called simultaneously
+- **Restricted transfers**: Certain staff require live-person handling
+- **PII masking**: Caller information masked in logs
+
+---
+
+## Agent Architecture
+
+The system uses a multi-agent architecture with handoffs between specialized agents based on call intent.
+
+```
++---------------------------------------------------------------------+
+|                         Incoming Call                               |
++---------------------------------------------------------------------+
+                                |
+                                v
++---------------------------------------------------------------------+
+|                        Voice Pipeline                               |
+|  +------------+  +------------+  +------------+  +--------------+   |
+|  |    STT     |->|    LLM     |->|    TTS     |->|    Audio     |   |
+|  | AssemblyAI |  | GPT-4.1    |  |  Cartesia  |  |   Output     |   |
+|  +------------+  +------------+  +------------+  +--------------+   |
++---------------------------------------------------------------------+
+                                |
+                                v
++---------------------------------------------------------------------+
+|                       Assistant Agent                               |
+|              (Front Desk Receptionist - Aizellee)                   |
+|                                                                     |
+|   Intent Detection --> Information Collection --> Routing           |
++---------------------------------------------------------------------+
+             |                                       |
+             v                                       v
++------------------------+             +---------------------------+
+|    NewQuoteAgent       |             |    PaymentIDDecAgent      |
+|                        |             |                           |
+| - Business quotes      |             | - Payments                |
+| - Personal quotes      |             | - ID cards                |
+| - Alpha-split route    |             | - Dec pages               |
++------------------------+             | - VA ring group           |
+                                       +---------------------------+
+```
+
+### Agent Responsibilities
+
+#### Assistant (Main Agent)
+
+The primary entry point for all calls. Responsibilities:
+
+- Greet callers with standard greeting
+- Detect call intent from initial request
+- Collect basic contact information (name, phone)
+- Route to specialized sub-agents for specific workflows
+- Handle direct answers (hours, location)
+- Process specific agent requests
+
+#### NewQuoteAgent
+
+Handles new insurance quote requests. Triggered when caller wants:
+
+- New insurance policy
+- Quote for coverage
+- Pricing information
+
+Flow:
+1. Confirm insurance type (business vs personal)
+2. Collect business name OR last name (spelled)
+3. Route via alpha-split to appropriate sales agent
+
+#### PaymentIDDecAgent
+
+Handles payment and document requests. Triggered when caller wants:
+
+- Make a payment
+- Request ID cards
+- Request declarations page
+- Proof of insurance
+
+Flow:
+1. Confirm insurance type (business vs personal)
+2. Collect business name OR last name (spelled)
+3. Try VA ring group first
+4. Fallback to Account Executives via alpha-split
+
+---
+
+## Data Flow
+
+### CallerInfo State Object
+
+The `CallerInfo` dataclass tracks all information collected during a call:
+
+```python
+@dataclass
+class CallerInfo:
+    name: str | None                    # Caller's full name
+    phone_number: str | None            # Callback number
+    insurance_type: InsuranceType | None # BUSINESS or PERSONAL
+    business_name: str | None           # For business insurance
+    last_name_spelled: str | None       # For personal insurance
+    call_intent: CallIntent | None      # Detected intent category
+    specific_agent_name: str | None     # If requesting specific agent
+    additional_notes: str               # Miscellaneous notes
+    assigned_agent: str | None          # Agent determined by routing
+```
+
+### State Flow During Handoffs
+
+```
+Assistant                      Sub-Agent
+    |                              |
+    |-- CallerInfo (shared) ------>|
+    |   - name                     |
+    |   - phone_number             |
+    |   - (partial intent)         |
+    |                              |
+    |                              | (collects additional info)
+    |                              | - insurance_type
+    |                              | - business_name / last_name
+    |                              | - assigned_agent
+    |                              |
+    |<---- CallerInfo (updated) ---|
+```
+
+The `CallerInfo` object is passed via `RunContext[CallerInfo]` and persists across agent handoffs within the same session.
+
+### What Data is Preserved vs Reset
+
+| Data Type | Preserved | Reset |
+|-----------|-----------|-------|
+| Caller name | Yes | - |
+| Phone number | Yes | - |
+| Insurance type | Yes | - |
+| Business name | Yes | - |
+| Last name | Yes | - |
+| Call intent | Yes | - |
+| Session ID | Yes | - |
+| Conversation history | Yes | - |
+| Agent instructions | - | Per-agent |
+| Available tools | - | Per-agent |
+
+---
+
+## Routing Logic
+
+### Alpha-Split Routing
+
+Calls are routed to specific agents based on alphabetical ranges of business names or last names.
+
+#### Commercial Lines (CL)
+
+Both new business AND existing clients route to CL Account Executives based on business name:
+
+```
+Business Name First Letter --> Agent
+         A-F              --> Adriana (ext 7002)
+         G-O              --> Rayvon (ext 7018)
+         P-Z              --> Dionna (ext 7006)
+       Platinum           --> Rachel T. (ext 7005)
+```
+
+#### Personal Lines (PL) - New Business
+
+New quotes route to Sales Agents based on caller's last name:
+
+```
+Last Name First Letter --> Agent
+         A-L           --> Queens (ext 7010)
+         M-Z           --> Brad (ext 7007)
+```
+
+#### Personal Lines (PL) - Existing Clients
+
+Service requests route to Account Executives based on caller's last name:
+
+```
+Last Name First Letter --> Agent
+         A-G           --> Yarislyn (ext 7011)
+         H-M           --> Al (ext 7015)
+         N-Z           --> Luis (ext 7017)
+```
+
+### Alpha Exception Prefixes
+
+Certain business name prefixes are skipped when determining the routing letter:
+
+| Prefix | Example | Routes On |
+|--------|---------|-----------|
+| "The" | "The Great Company" | G |
+| "Law office of" | "Law office of Smith" | S |
+| "Law offices of" | "Law Offices of Harry Levine" | H |
+
+Implementation in `get_alpha_route_key()`:
+
+```python
+# "The ABC Company" routes on "A", not "T"
+# "Law Offices of Brown" routes on "B", not "L"
+```
+
+### Ring Group Priority
+
+For payment/document requests:
+
+1. **Primary**: Try VA ring group (Ann ext 7016, Sheree ext 7008)
+2. **Fallback**: Route to Account Executive via alpha-split
+
+### Restricted Transfers
+
+Some staff members cannot receive direct AI transfers:
+
+| Name | Extension | Handling |
+|------|-----------|----------|
+| Jason L. | 7000 | Take message |
+| Fred | 7012 | Take message |
+
+When a caller requests these individuals, the agent offers to take a message instead of transferring.
+
+---
+
+## Call Intent Categories
+
+The `CallIntent` enum defines 12 categories for call routing:
+
+| Intent | Value | Description | Routing Behavior |
+|--------|-------|-------------|------------------|
+| NEW_QUOTE | `new_quote` | New insurance quote request | Handoff to NewQuoteAgent |
+| MAKE_PAYMENT | `make_payment` | Payment or document request | Handoff to PaymentIDDecAgent |
+| MAKE_CHANGE | `make_change` | Policy modification | Route to Account Executive |
+| CANCELLATION | `cancellation` | Policy cancellation | Route to Account Executive |
+| COVERAGE_RATE_QUESTIONS | `coverage_rate_questions` | Coverage/rate inquiries | Route to Account Executive |
+| POLICY_REVIEW_RENEWAL | `policy_review_renewal` | Policy review or renewal | Route to Account Executive |
+| SOMETHING_ELSE | `something_else` | Unclassified request | General routing |
+| MORTGAGEE_LIENHOLDERS | `mortgagee_lienholders` | Mortgagee/lienholder questions | Specialized routing |
+| CERTIFICATES | `certificates` | Certificate of insurance | Specialized routing |
+| CLAIMS | `claims` | Claim filing or status | Claims department |
+| HOURS_LOCATION | `hours_location` | Office hours or directions | Direct answer (no transfer) |
+| SPECIFIC_AGENT | `specific_agent` | Request for specific agent | Direct transfer or message |
+
+### Intent Detection Keywords
+
+The agent uses keyword matching as supplementary signals for intent detection:
+
+**New Quote Keywords**:
+- "new policy", "get a quote", "looking for insurance", "need coverage"
+- "shopping for insurance", "get insured", "pricing", "how much for"
+- "start a policy", "want a quote", "insurance quote", "buy insurance"
+
+**Payment/ID-Dec Keywords**:
+- "make a payment", "pay my bill", "payment", "pay premium"
+- "ID card", "insurance card", "proof of insurance"
+- "declarations page", "dec page", "need my cards"
+
+---
+
+## Staff Directory Integration
+
+The `staff_directory.py` module provides routing configuration and helper functions.
+
+### Core Data Structure
+
+```python
+STAFF_DIRECTORY: StaffDirectoryConfig = {
+    "staff": [...],                    # List of StaffMember entries
+    "restrictedTransfers": [...],      # Names that can't receive AI transfers
+    "alphaExceptionPrefixes": [...],   # Prefixes to skip in routing
+    "ringGroups": {...},               # Named ring group configurations
+}
+```
+
+### Routing Helper Functions
+
+| Function | Purpose | Usage |
+|----------|---------|-------|
+| `get_alpha_route_key(business_name)` | Extract routing letter from business name | Called before `find_agent_by_alpha` |
+| `find_agent_by_alpha(letter, dept, is_new)` | Find agent by alpha range and department | Main routing function |
+| `is_transferable(agent_name)` | Check if agent can receive AI transfers | Called before transfer |
+| `get_agent_by_name(name)` | Look up agent by name (partial match) | For specific agent requests |
+| `get_agent_by_extension(ext)` | Look up agent by extension | For extension lookups |
+| `get_agents_by_department(dept)` | Get all agents in a department | For ring groups |
+| `get_ring_group(name)` | Get ring group configuration | For VA team routing |
+
+### Integration Example
+
+```python
+# In NewQuoteAgent.record_business_quote_info():
+
+# 1. Extract routing letter from business name
+route_key = get_alpha_route_key(business_name)  # "The Great Co" -> "G"
+
+# 2. Find agent in Commercial Lines for new business
+agent = find_agent_by_alpha(route_key, "CL", is_new_business=True)
+
+# 3. Store assigned agent for transfer
+context.userdata.assigned_agent = agent["name"]
+```
+
+---
+
+## Conversation State Diagram
+
+```
+                          +-------------+
+                          |   START     |
+                          +------+------+
+                                 |
+                                 v
+                          +-------------+
+                          |  GREETING   |
+                          | "Thank you  |
+                          | for calling"|
+                          +------+------+
+                                 |
+                                 v
+                    +------------+------------+
+                    |    INTENT DETECTION     |
+                    |  (What can I help with?)|
+                    +------------+------------+
+                                 |
+          +----------------------+----------------------+
+          |                      |                      |
+          v                      v                      v
+   +------+------+        +------+------+        +------+------+
+   | DIRECT      |        | EARLY       |        | STANDARD    |
+   | ANSWER      |        | HANDOFF     |        | FLOW        |
+   | (hours/loc) |        | (quote/pay) |        | (other)     |
+   +------+------+        +------+------+        +------+------+
+          |                      |                      |
+          v                      v                      v
+   +------+------+        +------+------+        +------+------+
+   | COMPLETE    |        | CONTACT     |        | CONTACT     |
+   | (answered)  |        | INFO        |        | INFO        |
+   +-------------+        | (name/phone)|        | (name/phone)|
+                         +------+------+        +------+------+
+                                |                      |
+                                v                      v
+                         +------+------+        +------+------+
+                         | SUB-AGENT   |        | INSURANCE   |
+                         | HANDOFF     |        | TYPE        |
+                         +------+------+        | (bus/pers)  |
+                                |               +------+------+
+                                v                      |
+                         +------+------+               v
+                         | TYPE        |        +------+------+
+                         | DETECTION   |        | IDENTIFIER  |
+                         | (bus/pers)  |        | COLLECTION  |
+                         +------+------+        | (name/biz)  |
+                                |               +------+------+
+                                v                      |
+                         +------+------+               v
+                         | IDENTIFIER  |        +------+------+
+                         | COLLECTION  |        | CONFIRM &   |
+                         +------+------+        | ROUTE       |
+                                |               +------+------+
+                                v                      |
+                         +------+------+               v
+                         | CONFIRM &   |        +------+------+
+                         | TRANSFER    |        | TRANSFER    |
+                         +------+------+        +------+------+
+                                |                      |
+                                +----------+-----------+
+                                           |
+                                           v
+                                    +------+------+
+                                    |    END      |
+                                    | (call ends) |
+                                    +-------------+
+```
+
+### State Transitions
+
+| From State | Event | To State |
+|------------|-------|----------|
+| START | Call connected | GREETING |
+| GREETING | Greeting delivered | INTENT DETECTION |
+| INTENT DETECTION | Hours/location request | DIRECT ANSWER |
+| INTENT DETECTION | Quote request | EARLY HANDOFF |
+| INTENT DETECTION | Payment request | EARLY HANDOFF |
+| INTENT DETECTION | Other request | STANDARD FLOW |
+| EARLY HANDOFF | Contact collected | SUB-AGENT HANDOFF |
+| SUB-AGENT HANDOFF | Agent takes over | TYPE DETECTION |
+| TYPE DETECTION | Type confirmed | IDENTIFIER COLLECTION |
+| IDENTIFIER COLLECTION | Info collected | CONFIRM & TRANSFER |
+| STANDARD FLOW | Contact collected | INSURANCE TYPE |
+| INSURANCE TYPE | Type confirmed | IDENTIFIER COLLECTION |
+| IDENTIFIER COLLECTION | Info collected | CONFIRM & ROUTE |
+| CONFIRM & ROUTE | Confirmed | TRANSFER |
+| TRANSFER | Transfer initiated | END |
+
+---
+
+## Error Handling
+
+### Session Initialization
+
+```python
+try:
+    await session.start(
+        agent=Assistant(),
+        room=ctx.room,
+        room_options=room_options,
+    )
+    await ctx.connect()
+    await session.say("Thank you for calling...")
+except Exception as e:
+    logger.exception(f"Session initialization failed: {e}")
+    raise
+```
+
+### Environment Validation
+
+At startup, the agent validates required environment variables:
+
+```python
+REQUIRED_ENV = ["LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET"]
+
+def validate_environment() -> None:
+    missing = [v for v in REQUIRED_ENV if not os.getenv(v)]
+    if missing:
+        raise RuntimeError(f"Missing required environment variables: {missing}")
+```
+
+### Fallback Behaviors
+
+| Scenario | Fallback Behavior |
+|----------|-------------------|
+| No agent found for alpha range | Use default message, log warning |
+| Assigned agent unavailable | Take data sheet for callback |
+| VA ring group unavailable | Route to Account Executive |
+| Restricted transfer requested | Offer to take message |
+| Unknown intent | Route to general queue |
+
+### Logging
+
+All significant events are logged with appropriate severity:
+
+```python
+logger.info(f"Routing call for policy change: {context.userdata}")
+logger.info(f"Restricted transfer requested: {agent['name']} - offering to take message")
+logger.exception(f"Session initialization failed: {e}")
+```
+
+---
+
+## Security Considerations
+
+### PII Masking
+
+Caller information is masked in logs to protect privacy:
+
+```python
+def mask_phone(phone: str) -> str:
+    """Mask phone number, showing only last 4 digits."""
+    return "***-***-" + phone[-4:] if phone and len(phone) >= 4 else "***"
+
+def mask_name(name: str) -> str:
+    """Mask name, showing only first character."""
+    return name[0] + "*" * (len(name) - 1) if name else "***"
+```
+
+Log output example:
+```
+INFO - Recorded caller info: J***, ***-***-1234
+INFO - New quote - Personal insurance, last name: S**** (letter: S) -> Queens ext 7010
+```
+
+### Restricted Transfers
+
+Certain staff members are protected from direct AI transfers:
+
+```python
+"restrictedTransfers": ["Jason L.", "Fred"]
+```
+
+This prevents:
+- Automated calls reaching executives without screening
+- Special project staff being interrupted
+- Potential abuse of direct transfer capabilities
+
+The `is_transferable()` function checks both:
+1. The `restrictedTransfers` list
+2. The `transferable` field on individual staff entries
+
+### Prompt Injection Resistance
+
+The agent instructions include safeguards:
+
+1. **Session isolation**: "Every call is a BRAND NEW conversation. You have NO prior history with ANY caller."
+
+2. **No reference to previous conversations**: "NEVER reference 'earlier', 'before', 'last time', or any previous conversation."
+
+3. **Clarification over assumption**: "If a caller says something unclear or ambiguous, ask a fresh clarifying question."
+
+### Data Handling
+
+| Data Type | Storage | Retention |
+|-----------|---------|-----------|
+| Caller name | Session memory | Session duration |
+| Phone number | Session memory | Session duration |
+| Business name | Session memory | Session duration |
+| Call recordings | LiveKit Cloud | Per policy |
+| Transfer logs | Application logs | Per retention policy |
+
+### Environment Variables
+
+Sensitive configuration is stored in environment variables, never hardcoded:
+
+```python
+LIVEKIT_URL          # LiveKit server WebSocket URL
+LIVEKIT_API_KEY      # LiveKit API key
+LIVEKIT_API_SECRET   # LiveKit API secret
+```
+
+---
+
+## Appendix: File Structure
+
+```
+src/
+  agent.py              # Main entry point, agent definitions
+  staff_directory.py    # Staff data and routing functions
+
+tests/
+  test_agent.py         # Agent behavior tests
+  test_staff_directory.py # Routing logic tests
+
+docs/
+  ARCHITECTURE.md       # This document
+  OPERATIONS.md         # Operational guide
+  REVIEW_AUDIT_REPORT.md # Code review findings
+```
+
+---
+
+*Last updated: 2026-01-07*
