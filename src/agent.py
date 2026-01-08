@@ -21,6 +21,11 @@ agents based on call intent:
   (ID cards, dec pages). Routes through VA ring group first, with fallback
   to Account Executives.
 
+- **MakeChangeAgent**: Specialized agent for policy change/modification requests.
+  Collects insurance type and identifier, then routes to Account Executives
+  via alpha-split. Supports smart context detection (e.g., "swap a work truck"
+  automatically infers business insurance).
+
 Key Components
 --------------
 - **CallerInfo**: Dataclass tracking caller state throughout the conversation,
@@ -815,6 +820,284 @@ EDGE CASES:
 
 
 # =============================================================================
+# MAKE CHANGE AGENT - Handles policy change/modification flow
+# =============================================================================
+
+
+class MakeChangeAgent(Agent):
+    """Specialized agent for handling policy change and modification requests.
+
+    This agent is handed off to when the caller indicates they want to:
+    - Make changes to their existing policy
+    - Add or remove a vehicle, driver, or coverage
+    - Update their address or contact information
+    - Modify policy limits or deductibles
+    - Swap vehicles (e.g., work trucks)
+    - Request endorsements
+
+    It follows the specific flow:
+    1. Determine insurance type from context or by asking
+    2. Collect appropriate identifier (business name or last name)
+    3. Route to Account Executive via alpha-split
+
+    Routing Logic:
+    - Personal Lines: PL Account Executives by last name (A-G: Yarislyn, H-M: Al, N-Z: Luis)
+    - Commercial Lines: CL Account Executives by business name (A-F: Adriana, G-O: Rayvon, P-Z: Dionna)
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            instructions="""You are Aizellee, helping a caller who wants to make changes to their policy.
+
+GOAL: Collect info to route them to their Account Executive who handles policy changes.
+
+FLOW:
+1. DETERMINE TYPE from context clues (SMART DETECTION):
+   - Business clues: "work truck", "company vehicle", "office", "company", "LLC", "fleet", "store", "commercial", "business auto" -> This is BUSINESS insurance, confirm with them
+   - Personal clues: "car", "home", "auto", "family", "vehicle", "my car", "my house" -> This is PERSONAL insurance, confirm with them
+   - If caller says things like "swap a work truck" or "add a company vehicle", SKIP asking business/personal - it's clearly business insurance
+   - If unclear: ask "Is this for your business or personal insurance?"
+   - IMPORTANT: These are CLUES, not the business name!
+
+2. COLLECT INFO (always ask - never assume):
+   - BUSINESS: "What is the name of the business?" (wait for answer)
+   - PERSONAL: "Can you spell your last name for me?"
+   Use record_business_change_info or record_personal_change_info after they answer.
+
+3. CONFIRM AND TRANSFER:
+   "Thanks, to confirm - you need to make changes to [business name/your personal policy]. Let me connect you with your Account Executive."
+   Use transfer_to_account_executive.
+
+RULES:
+- One question at a time
+- Context words are CLUES, not business names
+- If caller provides strong business context (work truck, company, fleet), don't ask business/personal
+- If unclear, ask for clarification
+
+EDGE CASES:
+- Caller won't spell name: "No problem, can you tell me just the first letter of your last name?"
+- Multiple policies: "Which policy would you like to update today?"
+- Multiple changes: "No problem, I can connect you to discuss all your changes. First, [continue flow]"
+- Unclear response: Ask for clarification, don't assume
+
+COMMON CHANGE REQUESTS (for context):
+- Add/remove vehicle, driver, or property
+- Change address or contact info
+- Modify coverage limits or deductibles
+- Swap vehicles (especially work trucks)
+- Add/remove coverage types
+- Endorsements""",
+        )
+
+    async def on_enter(self) -> None:
+        """Called when this agent becomes active - start the policy change flow."""
+        self.session.generate_reply(
+            instructions="""Check if the caller already indicated business or personal context:
+- Strong business indicators: "work truck", "company vehicle", "fleet", "office", "company", "LLC" -> confirm it's business insurance
+- Strong personal indicators: "car", "home", "auto", "my vehicle" -> confirm it's personal insurance
+- If clear from context, confirm with them. If unclear, ask: 'Is this for your business or personal insurance?'"""
+        )
+
+    @function_tool
+    async def record_business_change_info(
+        self,
+        context: RunContext[CallerInfo],
+        business_name: str,
+    ) -> str:
+        """Record business insurance policy change information.
+
+        Call this tool after the caller provides their business name.
+
+        Args:
+            business_name: The name of the business requesting policy changes
+        """
+        context.userdata.insurance_type = InsuranceType.BUSINESS
+        context.userdata.business_name = business_name
+        context.userdata.call_intent = CallIntent.MAKE_CHANGE
+
+        # Use staff directory routing for Commercial Lines
+        # EXISTING clients go to Account Executives (is_new_business=False)
+        route_key = get_alpha_route_key(business_name)
+        agent = find_agent_by_alpha(route_key, "CL", is_new_business=False)
+
+        if agent:
+            context.userdata.assigned_agent = agent["name"]
+            logger.info(
+                f"Policy change request - Business: {business_name} "
+                f"(route key: {route_key}) -> {agent['name']} ext {agent['ext']}"
+            )
+            return f"Got it, I have this noted for {business_name}. Let me connect you with {agent['name']}, your Account Executive."
+        else:
+            logger.info(
+                f"Policy change request - Business: {business_name} (no agent found)"
+            )
+            return f"Got it, I have this noted for {business_name}. Let me connect you with your Account Executive."
+
+    @function_tool
+    async def record_personal_change_info(
+        self,
+        context: RunContext[CallerInfo],
+        last_name_spelled: str,
+    ) -> str:
+        """Record personal insurance policy change information with spelled last name.
+
+        Call this tool after the caller spells their last name.
+
+        Args:
+            last_name_spelled: The caller's last name as they spelled it out letter by letter
+        """
+        context.userdata.insurance_type = InsuranceType.PERSONAL
+        context.userdata.last_name_spelled = last_name_spelled
+        context.userdata.call_intent = CallIntent.MAKE_CHANGE
+
+        # Use staff directory routing for Personal Lines
+        # EXISTING clients go to Account Executives (is_new_business=False)
+        first_letter = (
+            last_name_spelled[0].upper()
+            if last_name_spelled and len(last_name_spelled) > 0
+            else "A"
+        )
+        agent = find_agent_by_alpha(first_letter, "PL", is_new_business=False)
+
+        if agent:
+            context.userdata.assigned_agent = agent["name"]
+            logger.info(
+                f"Policy change request - Personal, last name: {mask_name(last_name_spelled)} "
+                f"(letter: {first_letter}) -> {agent['name']} ext {agent['ext']}"
+            )
+            return f"Thank you, I have that as {last_name_spelled}. Let me connect you with {agent['name']}, your Account Executive."
+        else:
+            logger.info(
+                f"Policy change request - Personal, last name: {mask_name(last_name_spelled)} (no agent found)"
+            )
+            return f"Thank you, I have that as {last_name_spelled}. Let me connect you with your Account Executive."
+
+    @function_tool
+    async def transfer_to_account_executive(
+        self,
+        context: RunContext[CallerInfo],
+    ) -> str:
+        """Transfer the caller to their Account Executive for policy changes.
+
+        Call this after recording the caller's information to initiate the transfer.
+        For business insurance, uses CL alpha-split routing to Account Executives.
+        For personal insurance, uses PL alpha-split routing to Account Executives.
+        """
+        userdata = context.userdata
+
+        if userdata.insurance_type == InsuranceType.BUSINESS:
+            # Business insurance - route via CL alpha-split to Account Executive
+            agent_name = userdata.assigned_agent
+            if agent_name:
+                agent = get_agent_by_name(agent_name)
+                if agent:
+                    logger.info(
+                        f"Transferring policy change to {agent['name']} ext {agent['ext']}"
+                    )
+                    return await self._initiate_transfer(context, agent)
+            # Fallback if no agent assigned
+            logger.info(
+                "Transferring policy change - no agent assigned, using fallback"
+            )
+            return await self._handle_fallback(context, None)
+
+        elif userdata.insurance_type == InsuranceType.PERSONAL:
+            # Personal insurance - route via PL alpha-split to Account Executive
+            agent_name = userdata.assigned_agent
+            if agent_name:
+                agent = get_agent_by_name(agent_name)
+                if agent:
+                    logger.info(
+                        f"Transferring policy change to {agent['name']} ext {agent['ext']}"
+                    )
+                    return await self._initiate_transfer(context, agent)
+                else:
+                    # Agent unavailable - use fallback
+                    return await self._handle_fallback(context, agent_name)
+            else:
+                # No agent assigned - use fallback
+                return await self._handle_fallback(context, None)
+
+        return "I'll connect you with your Account Executive who can help with your policy changes."
+
+    async def _initiate_transfer(
+        self, context: RunContext[CallerInfo], agent: dict
+    ) -> str:
+        """Initiate the transfer to an agent with hold experience.
+
+        TODO: Implement actual SIP transfer when phone system is configured.
+        For now, logs the transfer and provides appropriate messaging.
+
+        Args:
+            agent: Staff directory entry with name, ext, department, etc.
+        """
+        agent_name = agent.get("name", "an agent") if isinstance(agent, dict) else agent
+        agent_ext = (
+            agent.get("ext", "unknown") if isinstance(agent, dict) else "unknown"
+        )
+
+        # Log the transfer attempt with extension info (mask PII)
+        caller_name = context.userdata.name
+        caller_phone = context.userdata.phone_number
+        logger.info(
+            f"[MOCK TRANSFER] Initiating policy change transfer to {agent_name} (ext {agent_ext}) for caller: "
+            f"name={mask_name(caller_name) if caller_name else 'unknown'}, "
+            f"phone={mask_phone(caller_phone) if caller_phone else 'unknown'}"
+        )
+
+        # Start the on-hold experience
+        # In production, this would initiate actual call transfer via SIP
+        # using the agent's extension from the staff directory
+
+        # TODO: Implement actual SIP transfer logic using agent["ext"]
+        return f"I'm connecting you with {agent_name} now. {HOLD_MESSAGE}"
+
+    async def _handle_fallback(
+        self, context: RunContext[CallerInfo], unavailable_agent: str | None
+    ) -> str:
+        """Handle the fallback when the assigned agent is unavailable.
+
+        TODO (Needs Client Input): Determine fallback behavior:
+        - Option 1: Ring all Account Executives in the department
+        - Option 2: Ring a specific backup agent
+        - Option 3: Take a message for callback
+        - Option 4: Transfer to VA ring group
+
+        Current behavior: Take a data sheet for callback.
+        """
+        if unavailable_agent:
+            logger.info(
+                f"Agent {unavailable_agent} unavailable for policy change, using fallback: take_data_sheet"
+            )
+        else:
+            logger.info(
+                "No agent assigned for policy change, using fallback: take_data_sheet"
+            )
+
+        return await self._take_data_sheet(context)
+
+    async def _take_data_sheet(self, context: RunContext[CallerInfo]) -> str:
+        """Collect information for a callback when no agent is available.
+
+        TODO (Needs Client Input): Determine hold timeout before this fallback triggers.
+        """
+        userdata = context.userdata
+        logger.info(
+            f"Taking data sheet for policy change callback: "
+            f"name={mask_name(userdata.name) if userdata.name else 'unknown'}, "
+            f"phone={mask_phone(userdata.phone_number) if userdata.phone_number else 'unknown'}, "
+            f"type={userdata.insurance_type}, "
+            f"business={userdata.business_name}, "
+            f"last_name={mask_name(userdata.last_name_spelled) if userdata.last_name_spelled else 'unknown'}"
+        )
+        return (
+            "I apologize, but your Account Executive is currently busy helping other customers. "
+            "I have all your information and they will call you back "
+            "as soon as possible. Is there anything else I can note for them about the changes you need?"
+        )
+
+
+# =============================================================================
 # MAIN ASSISTANT - Front desk receptionist
 # =============================================================================
 
@@ -829,7 +1112,8 @@ ROUTING QUICK REFERENCE:
 - SPECIFIC AGENT: Use route_call_specific_agent first (some agents restricted)
 - NEW QUOTE/POLICY: Acknowledge request, collect name+phone, then route_call_new_quote (handoff)
 - PAYMENT/ID CARD/DEC PAGE: Acknowledge request, collect name+phone, then route_call_payment_or_documents (handoff)
-- OTHER REQUESTS: Use route_call with intent: policy_change, cancellation, coverage_questions, policy_review, mortgagee_lienholder, certificates, claims, or other
+- POLICY CHANGE/MODIFICATION: Acknowledge request, collect name+phone, then route_call_policy_change (handoff) - includes: make a change, update policy, add/remove vehicle, add/remove driver, swap a truck, change address, add/remove coverage, endorsement
+- OTHER REQUESTS: Use route_call with intent: cancellation, coverage_questions, policy_review, mortgagee_lienholder, certificates, claims, or other
 
 STANDARD FLOW (for claims, changes, etc.):
 1. ACKNOWLEDGE: Brief acknowledgment of their request (e.g., "I can help you with that")
@@ -1023,6 +1307,39 @@ PERSONALITY:
         )
 
     @function_tool
+    async def route_call_policy_change(
+        self,
+        context: RunContext[CallerInfo],
+    ) -> tuple[Agent, str]:
+        """Route the call for a policy change or modification request.
+
+        Call this when the caller wants to make changes to their existing policy.
+        This includes requests like:
+        - "make a change", "change my policy", "update my policy"
+        - "add a vehicle", "remove a vehicle", "add a driver", "remove a driver"
+        - "swap a truck", "replace a vehicle"
+        - "change address", "update address", "moved"
+        - "add coverage", "remove coverage", "modify coverage"
+        - "modify my policy", "update my policy"
+        - "endorsement", "add endorsement"
+
+        Smart context detection: If the caller mentions business-specific terms like
+        "work truck", "company vehicle", "fleet", the agent will infer business insurance
+        without asking the business/personal question.
+        """
+        context.userdata.call_intent = CallIntent.MAKE_CHANGE
+        logger.info(
+            f"Detected policy change request, handing off to MakeChangeAgent: {context.userdata}"
+        )
+
+        # Hand off to the specialized MakeChangeAgent
+        # The tuple (new_agent, transition_message) triggers the handoff
+        return (
+            MakeChangeAgent(),
+            "I can help you with that.",
+        )
+
+    @function_tool
     async def route_call(
         self,
         context: RunContext[CallerInfo],
@@ -1172,7 +1489,7 @@ async def request_fnc(req: JobRequest) -> None:
 server.request_fnc = request_fnc
 
 
-@server.rtc_session()
+@server.rtc_session(agent_name="Aizellee")
 async def my_agent(ctx: JobContext) -> None:
     """Main agent entry point for handling voice sessions."""
     # Logging setup

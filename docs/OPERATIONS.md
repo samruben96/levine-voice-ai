@@ -4,12 +4,150 @@ This guide covers the operational aspects of the Harry Levine Insurance Voice Ag
 
 ## Table of Contents
 
+- [Telephony Setup](#telephony-setup)
 - [Staff Directory Management](#staff-directory-management)
 - [Routing Configuration](#routing-configuration)
 - [Ring Groups](#ring-groups)
 - [Restricted Transfers](#restricted-transfers)
 - [Deployment and Rollback](#deployment-and-rollback)
 - [Troubleshooting](#troubleshooting)
+
+---
+
+## Telephony Setup
+
+This agent uses LiveKit Phone Numbers for inbound calling. The setup requires three components working together:
+
+1. **LiveKit Phone Number** - The phone number callers dial
+2. **SIP Dispatch Rule** - Routes incoming calls to the agent
+3. **Agent Registration** - The agent must register with an explicit name
+
+### Current Configuration
+
+| Component | Value |
+|-----------|-------|
+| Phone Number | +1 (484) 938-2056 |
+| Phone Number ID | `PN_PPN_qqYEy29Fwdyq` |
+| Dispatch Rule ID | `SDR_9iuRMJaLoJF9` |
+| Agent Name | `Aizellee` |
+| Room Prefix | `hli-` |
+
+### How It Works
+
+1. Caller dials +1 (484) 938-2056
+2. LiveKit matches the phone number ID to the dispatch rule via `trunkIds`
+3. Dispatch rule creates a room with prefix `hli-` and dispatches agent `Aizellee`
+4. Agent wakes up and handles the call
+
+### Critical: Agent Name Registration
+
+For explicit dispatch to work, the agent **must** register itself with the same name specified in the dispatch rule. This is done in `src/agent.py`:
+
+```python
+@server.rtc_session(agent_name="Aizellee")
+async def my_agent(ctx: JobContext) -> None:
+    ...
+```
+
+**Without `agent_name` in the decorator, the dispatch rule cannot find the agent and calls will just ring.**
+
+### Managing Phone Numbers
+
+List phone numbers:
+```bash
+lk number list
+```
+
+Search for available numbers:
+```bash
+lk number search --country-code US --area-code 484
+```
+
+Purchase a new number:
+```bash
+lk number purchase --numbers +14845550100
+```
+
+### Managing Dispatch Rules
+
+List dispatch rules:
+```bash
+lk sip dispatch list --json
+```
+
+Create a dispatch rule (save as `dispatch-rule.json`):
+```json
+{
+  "dispatch_rule": {
+    "name": "Harry Levine Inbound",
+    "rule": {
+      "dispatchRuleIndividual": {
+        "roomPrefix": "hli-"
+      }
+    },
+    "roomConfig": {
+      "agents": [{
+        "agentName": "Aizellee"
+      }]
+    }
+  }
+}
+```
+
+```bash
+lk sip dispatch create dispatch-rule.json
+```
+
+Associate dispatch rule with phone number (set trunkIds):
+```bash
+lk sip dispatch update --id <DISPATCH_RULE_ID> --trunks "<PHONE_NUMBER_ID>"
+```
+
+Delete a dispatch rule:
+```bash
+lk sip dispatch delete <DISPATCH_RULE_ID>
+```
+
+### Troubleshooting Telephony
+
+#### Calls Just Ring (Agent Not Answering)
+
+**Most likely cause**: Missing `agent_name` in `@server.rtc_session()` decorator.
+
+**Check**:
+1. Verify agent status shows "Running":
+   ```bash
+   lk agent status
+   ```
+   - If "Sleeping" or "Pending", the agent isn't registered for explicit dispatch
+
+2. Verify agent code has `agent_name`:
+   ```python
+   @server.rtc_session(agent_name="Aizellee")  # Required!
+   ```
+
+3. Verify dispatch rule has matching agent name:
+   ```bash
+   lk sip dispatch list --json | grep agentName
+   ```
+
+4. Redeploy after fixing:
+   ```bash
+   lk agent deploy
+   ```
+
+#### Dispatch Rule Shows as "Catch-All"
+
+**Cause**: Dispatch rule without `trunkIds` matches all trunks.
+
+**Fix**: Update the dispatch rule to include the phone number ID:
+```bash
+lk sip dispatch update --id <DISPATCH_RULE_ID> --trunks "<PHONE_NUMBER_ID>"
+```
+
+#### Phone Number Not Associated with Dispatch Rule
+
+**Note**: When using `trunkIds` in the dispatch rule, the phone number's "SIP Dispatch Rule" column may appear empty in `lk number list`. This is expected - the routing works via the dispatch rule's `trunkIds` field, not the phone number's dispatch rule assignment.
 
 ---
 
