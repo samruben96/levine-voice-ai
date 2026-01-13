@@ -34,6 +34,17 @@
   - [x] Fallback/hold handling placeholder with data sheet callback
   - [x] Write tests for policy change flow (14 new tests)
 
+- [x] **Cancellation Flow** (CancellationAgent)
+  - [x] Add cancellation intent detection keywords (cancel my policy, cancellation, cancel insurance, want to cancel, need to cancel, stop my policy, end my policy, don't need insurance anymore, switching carriers, found cheaper insurance, non-renew, don't renew)
+  - [x] Create `CancellationAgent` class with empathetic tone
+  - [x] Add `route_call_cancellation` handoff in Assistant
+  - [x] Smart context detection for business/personal insurance
+  - [x] Alpha-split routing to Account Executives (existing clients only)
+  - [x] Configurable fallback options (Option A: data sheet, Option B: ring all AEs, Option C: specific backup)
+  - [x] Data sheet collection for callbacks (name, phone, insurance type, business/last name, reason, callback time)
+  - [x] On-hold experience with HOLD_MESSAGE
+  - [x] Write tests for cancellation flow (18 new tests)
+
 ### Conversation Intelligence
 - [x] **Context awareness for insurance type**
 - [x] **Confirmation before transfer**
@@ -137,19 +148,20 @@
 - [ ] **SIP transfer**: Implement actual SIP transfer when phone system configured
 - [ ] **SIP domain**: Get PBX domain for transfer URLs
 
-### MakeChangeAgent Specific
+### MakeChangeAgent & CancellationAgent Specific
 - [ ] **AE Fallback Routing**: When assigned Account Executive is unavailable, what should happen?
-  - Option A: Ring all Account Executives in the department
-  - Option B: Ring a specific backup agent
-  - Option C: Take a message for callback (current behavior)
+  - Option A: Take a message/data sheet for callback (current behavior)
+  - Option B: Ring all Account Executives in the department simultaneously
+  - Option C: Ring a specific backup agent
   - Option D: Transfer to VA ring group
 - [ ] **Hold Timeout**: How long should caller wait on hold before fallback triggers?
+- [ ] **Data Sheet Storage**: Where should data sheets be sent/stored? (email, CRM, database)
 
 ---
 
 ## Future Enhancements
 
-- [ ] Add more intent handlers (claims, cancellations)
+- [ ] Add claims intent handler
 - [ ] Implement on-hold music/periodic check-in during transfers
 - [ ] Add call recording and transcription logging
 - [ ] Implement agent availability checking (phone system integration)
@@ -170,4 +182,4 @@ See `docs/REVIEW_AUDIT_REPORT.md` for the full multi-agent analysis including:
 
 ---
 
-*Last updated: 2026-01-07 (MakeChangeAgent added)*
+*Last updated: 2026-01-13 (CancellationAgent added)*

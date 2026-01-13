@@ -20,6 +20,8 @@ A voice AI front-desk receptionist for Harry Levine Insurance, built with [LiveK
 
 - **NewQuoteAgent**: Handles new quote requests with tailored conversation flows for business and personal insurance
 - **PaymentIDDecAgent**: Manages payment and document requests (ID cards, declarations pages)
+- **MakeChangeAgent**: Handles policy change/modification requests with smart context detection
+- **CancellationAgent**: Handles policy cancellation requests with empathetic tone and fallback options
 
 ### Ring Group Support
 
@@ -53,8 +55,16 @@ Assistant (Main Front Desk)
     |       - Routes to sales agents via alpha-split
     |
     +-- PaymentIDDecAgent (Payments/Documents)
-            - Collects business/personal info
-            - Routes to VA ring group or Account Executives
+    |       - Collects business/personal info
+    |       - Routes to VA ring group or Account Executives
+    |
+    +-- MakeChangeAgent (Policy changes)
+    |       - Collects business/personal info
+    |       - Routes to Account Executives via alpha-split
+    |
+    +-- CancellationAgent (Policy cancellations)
+            - Shows empathy, collects business/personal info
+            - Routes to Account Executives via alpha-split
 ```
 
 ### Call Intent Categories
