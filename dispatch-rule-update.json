@@ -1,0 +1,14 @@
+{
+  "name": "Harry Levine Inbound",
+  "numbers": ["+14849382056"],
+  "rule": {
+    "dispatchRuleIndividual": {
+      "roomPrefix": "hli-"
+    }
+  },
+  "roomConfig": {
+    "agents": [{
+      "agentName": "Aizellee"
+    }]
+  }
+}

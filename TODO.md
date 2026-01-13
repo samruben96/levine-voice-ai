@@ -25,6 +25,15 @@
   - [x] VA ring group priority, fallback to Account Executives
   - [x] Early handoff (collect contact info only, then hand off)
 
+- [x] **Policy Change Flow** (MakeChangeAgent)
+  - [x] Add policy change intent detection keywords (make a change, add vehicle, remove driver, swap truck, change address, add/remove coverage, endorsement)
+  - [x] Create `MakeChangeAgent` class with business/personal flow
+  - [x] Add `route_call_policy_change` handoff in Assistant
+  - [x] Smart context detection (e.g., "work truck" auto-infers business insurance)
+  - [x] Alpha-split routing to Account Executives (PL: Yarislyn A-G, Al H-M, Luis N-Z; CL: Adriana A-F, Rayvon G-O, Dionna P-Z)
+  - [x] Fallback/hold handling placeholder with data sheet callback
+  - [x] Write tests for policy change flow (14 new tests)
+
 ### Conversation Intelligence
 - [x] **Context awareness for insurance type**
 - [x] **Confirmation before transfer**
@@ -128,11 +137,19 @@
 - [ ] **SIP transfer**: Implement actual SIP transfer when phone system configured
 - [ ] **SIP domain**: Get PBX domain for transfer URLs
 
+### MakeChangeAgent Specific
+- [ ] **AE Fallback Routing**: When assigned Account Executive is unavailable, what should happen?
+  - Option A: Ring all Account Executives in the department
+  - Option B: Ring a specific backup agent
+  - Option C: Take a message for callback (current behavior)
+  - Option D: Transfer to VA ring group
+- [ ] **Hold Timeout**: How long should caller wait on hold before fallback triggers?
+
 ---
 
 ## Future Enhancements
 
-- [ ] Add more intent handlers (claims, policy changes, cancellations)
+- [ ] Add more intent handlers (claims, cancellations)
 - [ ] Implement on-hold music/periodic check-in during transfers
 - [ ] Add call recording and transcription logging
 - [ ] Implement agent availability checking (phone system integration)
@@ -153,4 +170,4 @@ See `docs/REVIEW_AUDIT_REPORT.md` for the full multi-agent analysis including:
 
 ---
 
-*Last updated: 2026-01-07*
+*Last updated: 2026-01-07 (MakeChangeAgent added)*
