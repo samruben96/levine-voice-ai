@@ -37,34 +37,91 @@ A voice AI front-desk receptionist for Harry Levine Insurance, built with [LiveK
 
 ```
 src/
-  agent.py           # Main agent with Assistant, NewQuoteAgent, PaymentIDDecAgent
-  staff_directory.py # Staff data and routing logic
+  __init__.py              # Package init
+  models.py                # CallerInfo, CallIntent, InsuranceType
+  utils.py                 # PII masking: mask_phone, mask_name
+  constants.py             # HOLD_MESSAGE, CARRIER_CLAIMS_NUMBERS
+  base_agent.py            # BaseRoutingAgent (shared routing logic)
+  main.py                  # Server setup, entry point
+  agent.py                 # Backwards compatibility wrapper
+  instruction_templates.py # Token-optimized instruction fragments
+  business_hours.py        # Business hours and timezone handling
+  staff_directory.py       # Staff data and routing logic
+  agents/
+    __init__.py            # Exports all agents
+    assistant.py           # Main Assistant (front desk)
+    quote.py               # NewQuoteAgent
+    payment.py             # PaymentIDDecAgent
+    changes.py             # MakeChangeAgent
+    cancellation.py        # CancellationAgent
+    claims.py              # ClaimsAgent
+    coverage.py            # CoverageRateAgent
+    something_else.py      # SomethingElseAgent
+    mortgagee.py           # MortgageeCertificateAgent
+    after_hours.py         # AfterHoursAgent
 
 tests/
-  test_agent.py           # Agent behavior tests
-  test_staff_directory.py # Routing logic tests
+  conftest.py              # Enhanced shared fixtures
+  test_utils.py            # Utility function tests (63 tests)
+  unit/                    # Fast unit tests (76 tests)
+    test_caller_info.py
+    test_phone_validation.py
+    test_environment.py
+    test_carrier_claims.py
+    test_agent_instructions.py
+  integration/             # LLM integration tests (131 tests)
+    test_greeting.py
+    test_security.py
+    test_quote_flow.py
+    test_payment_flow.py
+    test_change_flow.py
+    test_cancellation_flow.py
+    test_claims_flow.py
+    test_coverage_rate.py
+    test_something_else.py
+    test_mortgagee_cert.py
+    test_after_hours.py
+  test_agent.py            # Original (kept for compatibility)
+  test_staff_directory.py  # Routing logic tests (62 tests)
+  test_business_hours.py   # Business hours tests (129 tests)
+  test_base_routing.py     # BaseRoutingAgent tests (41 tests)
 ```
 
 ### Agent Hierarchy
 
 ```
-Assistant (Main Front Desk)
+Agent (LiveKit base)
     |
-    +-- NewQuoteAgent (Quote requests)
-    |       - Collects business/personal info
-    |       - Routes to sales agents via alpha-split
+    +-- BaseRoutingAgent (shared routing logic - NEW)
+    |       |
+    |       +-- NewQuoteAgent (Quote requests)
+    |       |       - Collects business/personal info
+    |       |       - Routes to sales agents via alpha-split
+    |       |
+    |       +-- MakeChangeAgent (Policy changes)
+    |       |       - Collects business/personal info
+    |       |       - Routes to Account Executives via alpha-split
+    |       |
+    |       +-- CancellationAgent (Policy cancellations)
+    |       |       - Shows empathy, collects business/personal info
+    |       |       - Routes to Account Executives via alpha-split
+    |       |
+    |       +-- SomethingElseAgent (Other inquiries)
+    |       |       - Warm transfer support
+    |       |       - Routes to Account Executives
+    |       |
+    |       +-- CoverageRateAgent (Coverage/rate questions)
+    |               - Routes to Account Executives via alpha-split
     |
-    +-- PaymentIDDecAgent (Payments/Documents)
+    +-- PaymentIDDecAgent (Payments/Documents - separate pattern)
     |       - Collects business/personal info
     |       - Routes to VA ring group or Account Executives
     |
-    +-- MakeChangeAgent (Policy changes)
-    |       - Collects business/personal info
-    |       - Routes to Account Executives via alpha-split
+    +-- ClaimsAgent (Claims filing)
+    |       - Business hours: empathy + transfer to claims team
+    |       - After hours: empathy + carrier claims number lookup
     |
-    +-- CancellationAgent (Policy cancellations)
-            - Shows empathy, collects business/personal info
-            - Routes to Account Executives via alpha-split
+    +-- Assistant (Main Front Desk - orchestrates handoffs)
 ```
 
 ### Call Intent Categories
@@ -77,7 +134,7 @@ Assistant (Main Front Desk)
 | CANCELLATION | Policy cancellation requests |
 | COVERAGE_RATE_QUESTIONS | Coverage or rate inquiries |
 | POLICY_REVIEW_RENEWAL | Annual reviews and renewals |
-| CLAIMS | Filing or checking claims |
+| CLAIMS | Filing claims (business hours: transfer; after hours: carrier lookup) |
 | MORTGAGEE_LIENHOLDERS | Mortgagee/lienholder inquiries |
 | CERTIFICATES | Certificate of insurance requests |
 | HOURS_LOCATION | Office hours and directions |
@@ -170,7 +227,9 @@ The `livekit.toml` file contains deployment settings:
 
 ## Testing
 
-Run the test suite with pytest:
+The test suite is organized into unit tests (fast, no external APIs) and integration tests (require LLM API access).
+
+### Running Tests
 
 ```bash
 # Run all tests
@@ -179,12 +238,35 @@ uv run pytest tests/
 # Run with verbose output
 uv run pytest tests/ -v
 
+# Fast unit tests only (~0.1s)
+.venv/bin/python -m pytest tests/unit/ -v
+
+# Integration tests only
+.venv/bin/python -m pytest tests/integration/ -v
+
+# By marker
+.venv/bin/python -m pytest -m unit      # Unit tests only
+.venv/bin/python -m pytest -m security  # Security tests only
+.venv/bin/python -m pytest -m smoke     # Smoke tests (CI)
+
 # Run specific test file
 uv run pytest tests/test_agent.py
 
 # Run specific test
 uv run pytest tests/test_agent.py::test_receptionist_greeting
 ```
+
+### Test Structure
+
+| Directory | Tests | Description |
+|-----------|-------|-------------|
+| `tests/unit/` | 76 | Fast unit tests, no external API calls |
+| `tests/integration/` | 131 | LLM integration tests by feature |
+| `tests/test_utils.py` | 63 | Utility function tests |
+| `tests/test_staff_directory.py` | 62 | Routing logic tests |
+| `tests/test_business_hours.py` | 129 | Business hours tests |
+| `tests/test_base_routing.py` | 41 | BaseRoutingAgent tests |
+| `tests/test_agent.py` | - | Original file (compatibility) |
 
 ### Code Quality
 
@@ -269,6 +351,10 @@ The project includes [AGENTS.md](AGENTS.md) with LiveKit-specific conventions fo
 ## Documentation
 
 - [OPERATIONS.md](docs/OPERATIONS.md) - Staff directory management and routing configuration
+- [LATENCY_TUNING.md](docs/LATENCY_TUNING.md) - Voice latency optimization parameters and tuning guide
+- [BASE_ROUTING_AGENT_DESIGN.md](docs/BASE_ROUTING_AGENT_DESIGN.md) - BaseRoutingAgent architecture design (implemented)
+- [TEST_RESTRUCTURING_PLAN.md](docs/TEST_RESTRUCTURING_PLAN.md) - Test suite restructuring plan (COMPLETED)
+- [PROJECT_STATUS.md](PROJECT_STATUS.md) - Current project status and Phase 1/2 completion report
 - [AGENTS.md](AGENTS.md) - LiveKit Agents project conventions
 - [LiveKit Agents Documentation](https://docs.livekit.io/agents/)
 

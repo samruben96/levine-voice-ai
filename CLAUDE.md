@@ -26,12 +26,14 @@ Task tool → subagent_type: "python-pro" → prompt: "Your task description"
 | **qa-expert** | `qa-expert` | Test strategy, test planning, coverage analysis, defect management, quality gates | "Create a comprehensive test plan for the payment flow" |
 | **code-reviewer** | `code-reviewer` | Security review, performance audit, best practices compliance, pre-merge review | "Review src/agent.py for security vulnerabilities" |
 | **task-distributor** | `task-distributor` | Load balancing, queue management, work distribution, resource allocation | "Design task distribution for multi-agent workflows" |
+| **livekit-expert** | `livekit-expert` | LiveKit Agents framework, voice pipelines, STT/TTS/LLM configuration, handoffs, rooms, webhooks, SIP telephony | "Add a new sub-agent for certificate requests" |
 
 ### When to Use Each Agent
 
 | Scenario | Agent(s) to Use |
 |----------|-----------------|
 | Writing Python code, fixing bugs, adding features | **python-pro** (PRIMARY for this project) |
+| LiveKit voice agent work, handoffs, STT/TTS/LLM config | **livekit-expert** (PRIMARY for LiveKit-specific work) |
 | Modifying agent instructions or prompts | **prompt-engineer** |
 | Adding tests or improving test coverage | **qa-expert** + **python-pro** |
 | Reviewing code before commit/deploy | **code-reviewer** |
@@ -39,15 +41,18 @@ Task tool → subagent_type: "python-pro" → prompt: "Your task description"
 | Designing LLM pipelines or optimizing costs | **llm-architect** |
 | Building features across multiple layers | **fullstack-developer** |
 | Distributing work across multiple agents | **task-distributor** |
+| Voice latency issues, pipeline optimization | **livekit-expert** |
+| SIP telephony setup, webhooks, room configuration | **livekit-expert** |
 
 ### Agent Usage Protocol
 
 1. **ALWAYS** evaluate which agent(s) apply before starting work
 2. Launch appropriate agent(s) using Task tool with matching `subagent_type`
-3. For Python/LiveKit work, **python-pro** is the PRIMARY agent
-4. Use **code-reviewer** after writing significant code
-5. Use **qa-expert** when test coverage is needed
-6. Update TODO.md after completing work
+3. For general Python work, **python-pro** is the PRIMARY agent
+4. For LiveKit-specific work (voice pipelines, handoffs, STT/TTS), **livekit-expert** is the PRIMARY agent
+5. Use **code-reviewer** after writing significant code
+6. Use **qa-expert** when test coverage is needed
+7. Update TODO.md after completing work
 
 ---
 

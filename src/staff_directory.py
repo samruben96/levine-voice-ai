@@ -39,6 +39,33 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TypedDict
 
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    # Python < 3.9 compatibility
+    from backports.zoneinfo import ZoneInfo  # type: ignore[import-not-found]
+
+
+# =============================================================================
+# PUBLIC API
+# =============================================================================
+
+__all__ = [
+    "STAFF_DIRECTORY",
+    "RingGroup",
+    "StaffDirectoryConfig",
+    "StaffMember",
+    "find_agent_by_alpha",
+    "get_agent_by_extension",
+    "get_agent_by_name",
+    "get_agents_by_department",
+    "get_alpha_route_key",
+    "get_available_agent_by_alpha",
+    "get_ring_group",
+    "is_agent_available",
+    "is_transferable",
+]
+
 
 class StaffMember(TypedDict, total=False):
     """Type definition for a staff member entry."""
@@ -208,6 +235,11 @@ STAFF_DIRECTORY: StaffDirectoryConfig = {
             "extensions": ["7016", "7008"],  # Ann and Sheree (PL-Service CSRs)
             "description": "Payment and ID/Dec requests",
         },
+        "Claims": {
+            "name": "Claims Team",
+            "extensions": [],  # TODO (Needs Client Input): Which extensions handle claims?
+            "description": "Claims filing and status inquiries",
+        },
     },
 }
 
@@ -252,8 +284,10 @@ def get_alpha_route_key(business_name: str) -> str:
             prefix_word_count = len(prefix.split())
             if len(words) > prefix_word_count:
                 # Return first letter of the word after the prefix
-                return words[prefix_word_count][0].upper()
-            # If no word after prefix, use the prefix's first letter
+                next_word = words[prefix_word_count]
+                if next_word:
+                    return next_word[0].upper()
+            # If no word after prefix or next word is empty, use the prefix's first letter
             break
 
     # Default: use first letter of the business name
@@ -368,7 +402,7 @@ def is_agent_available(agent: StaffMember) -> bool:
 
     try:
         start_str, end_str = time_block.split("-")
-        now = datetime.now()
+        now = datetime.now(ZoneInfo("America/New_York"))
 
         # Parse start time
         start_parts = start_str.strip().split(":")
