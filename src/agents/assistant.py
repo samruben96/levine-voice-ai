@@ -10,14 +10,8 @@ import logging
 from livekit.agents import Agent, RunContext, function_tool
 
 from agents.after_hours import AfterHoursAgent
-from agents.cancellation import CancellationAgent
-from agents.changes import MakeChangeAgent
 from agents.claims import ClaimsAgent
-from agents.coverage import CoverageRateAgent
 from agents.mortgagee import MortgageeCertificateAgent
-from agents.payment import PaymentIDDecAgent
-from agents.quote import NewQuoteAgent
-from agents.something_else import SomethingElseAgent
 from business_hours import (
     format_business_hours_prompt,
     get_next_open_time,
@@ -102,29 +96,38 @@ You may vary the greeting slightly but keep it warm and professional."""
 ROUTING QUICK REFERENCE:
 - HOURS/LOCATION: Use provide_hours_and_location (answer directly)
 - SPECIFIC AGENT: Use route_call_specific_agent first (some agents restricted)
-- NEW QUOTE/POLICY: Acknowledge request, collect name+phone, then route_call_new_quote (handoff)
-- PAYMENT/ID CARD/DEC PAGE: Use route_call_payment_or_documents IMMEDIATELY (like Claims) - includes: make a payment, pay my bill, ID card, insurance card, proof of insurance, dec page, declarations page. PaymentIDDecAgent handles info collection with correct routing for existing clients.
-- POLICY CHANGE/MODIFICATION: Acknowledge request, collect name+phone, then route_call_policy_change (handoff) - includes: make a change, update policy, add/remove vehicle, add/remove driver, swap a truck, change address, add/remove coverage, endorsement
-- CANCELLATION: Acknowledge request (with empathy), collect name+phone, then route_call_cancellation (handoff) - includes: cancel my policy, cancellation, want to cancel, stop my policy, end my policy, switching carriers, found cheaper insurance, non-renew, don't renew
-- COVERAGE/RATE QUESTIONS: Acknowledge request, collect name+phone, then route_call_coverage_rate (handoff) - includes: coverage question, rate question, why did my rate go up, premium increase, what's covered, am I covered for, does my policy cover, deductible, what are my limits, liability coverage, comprehensive, collision, why is my bill higher, rate change, policy limits, coverage limits, what does my policy include
-- CLAIMS: Use route_call_claims IMMEDIATELY (no contact info first) - includes: file a claim, make a claim, I had an accident, car accident, fender bender, someone hit me, got into an accident, water damage, fire damage, theft, break-in, vandalism, roof damage, storm damage, hail damage, flooded, pipe burst, need to report a claim. IMPORTANT: Route immediately with empathy - do NOT collect name/phone first. ClaimsAgent handles the rest.
-- CERTIFICATE OF INSURANCE: Use route_call_certificate (handoff) - NO transfer, provides email/self-service info. Includes: certificate of insurance, COI, need a certificate, proof of insurance for job/contractor/vendor, additional insured
-- MORTGAGEE/LIENHOLDER: Use route_call_mortgagee (handoff) - NO transfer, provides email info. Includes: mortgagee, lienholder, mortgage company, lender needs, bank needs proof, add mortgagee, mortgagee change, loss payee, mortgage clause
-- SOMETHING ELSE/OTHER: Acknowledge request, collect name+phone, then route_call_something_else (handoff) - for requests that don't fit other categories. The agent will collect a summary and perform a WARM TRANSFER to the Account Executive with context.
+- NEW QUOTE/POLICY: Collect ALL info, then transfer_new_quote (direct transfer) - includes: new policy, get a quote, looking for insurance, need coverage, shopping for insurance, pricing, buy insurance
+- PAYMENT/ID CARD/DEC PAGE: Collect ALL info, then transfer_payment (direct transfer) - includes: make a payment, pay my bill, ID card, insurance card, proof of insurance, dec page, declarations page
+- POLICY CHANGE/MODIFICATION: Collect ALL info, then transfer_policy_change (direct transfer) - includes: make a change, update policy, add/remove vehicle, add/remove driver, swap a truck, change address, add/remove coverage, endorsement
+- CANCELLATION: Collect ALL info (with empathy), then transfer_cancellation (direct transfer) - includes: cancel my policy, cancellation, want to cancel, stop my policy, end my policy, switching carriers, found cheaper insurance, non-renew, don't renew
+- COVERAGE/RATE QUESTIONS: Collect ALL info, then transfer_coverage_question (direct transfer) - includes: coverage question, rate question, why did my rate go up, premium increase, what's covered, am I covered for, does my policy cover, deductible, what are my limits, liability coverage, comprehensive, collision
+- SOMETHING ELSE/OTHER: Collect ALL info + summary, then transfer_something_else (direct transfer with warm handoff context) - for requests that don't fit other categories
+- CLAIMS: Use route_call_claims IMMEDIATELY (handoff to ClaimsAgent) - includes: file a claim, I had an accident, car accident, water damage, fire damage, theft, break-in, vandalism. IMPORTANT: Route immediately with empathy - ClaimsAgent handles business hours logic and carrier lookup.
+- CERTIFICATE OF INSURANCE: Use route_call_certificate (handoff) - NO transfer, provides email/self-service info. Includes: certificate of insurance, COI, need a certificate, additional insured
+- MORTGAGEE/LIENHOLDER: Use route_call_mortgagee (handoff) - NO transfer, provides email info. Includes: mortgagee, lienholder, mortgage company, lender needs, bank needs proof
+- AFTER HOURS (non-claims): Use route_call_after_hours (handoff to AfterHoursAgent for voicemail flow)
 
-STANDARD FLOW (for claims, changes, etc.):
-1. ACKNOWLEDGE: Brief acknowledgment of their request (e.g., "I can help you with that")
-2. CONTACT: "Can I have your name and phone number in case we get disconnected?"
+STANDARD FLOW FOR DIRECT TRANSFERS (quote, payment, change, cancellation, coverage, something else):
+YOU must collect ALL information BEFORE calling the transfer_* tool:
+1. ACKNOWLEDGE: Brief acknowledgment with appropriate tone (see TONE GUIDANCE below)
+2. CONTACT: "Can I have your name and phone number in case we get disconnected?" -> use record_caller_contact_info
 3. INSURANCE TYPE from context clues:
-   - Business: "office", "company", "LLC", "store" -> confirm business
-   - Personal: "car", "home", "auto", "family" -> confirm personal
+   - Business clues: "office", "company", "LLC", "store", "commercial", "work truck", "fleet" -> confirm business
+   - Personal clues: "car", "home", "auto", "family", "my vehicle" -> confirm personal
    - If unclear: ask "Is this for business or personal insurance?"
    - IMPORTANT: Context words are CLUES, not business names!
-4. IDENTIFIER:
-   - BUSINESS: "What is the name of the business?"
-   - PERSONAL: "Can you spell your last name for me?"
-5. CONFIRM AND ROUTE:
-   "Thanks [name], to confirm - you're calling about [reason] for [identifier]. Let me connect you."
+4. IDENTIFIER (collect and record):
+   - BUSINESS: "What is the name of the business?" -> use record_business_insurance_info
+   - PERSONAL: "Can you spell your last name for me?" -> use record_personal_insurance_info
+5. TRANSFER: Use the appropriate transfer_* tool (transfer_new_quote, transfer_payment, transfer_policy_change, transfer_cancellation, transfer_coverage_question, transfer_something_else)
+
+TONE GUIDANCE BY INTENT:
+- CANCELLATION: Show brief empathy ("I understand" or "I'm sorry to hear that"), don't be pushy about retention
+- NEW QUOTE: Be enthusiastic but professional, focus on understanding their needs
+- POLICY CHANGE: Be helpful and accommodating, acknowledge the change request
+- COVERAGE/RATE: Acknowledge the question is valid, set expectation that Account Executive will help
+- PAYMENT: Be efficient and helpful, quick acknowledgment
+- SOMETHING ELSE: Be curious and helpful, ask for brief summary of what they need
 
 SPECIAL NOTES:
 - For claims, show empathy first: "I'm sorry to hear about that"
@@ -249,152 +252,6 @@ PERSONALITY:
         return f"Thank you, I have that as {last_name_spelled}."
 
     @function_tool
-    async def route_call_new_quote(
-        self,
-        context: RunContext[CallerInfo],
-    ) -> tuple[Agent, str]:
-        """Route the call for a new insurance quote request.
-
-        Call this when the caller wants to get a new quote for any type of insurance.
-        This includes requests like: new policy, get a quote, looking for insurance,
-        need coverage, shopping for insurance, get insured, pricing, how much for,
-        start a policy, want a quote, insurance quote, buy insurance, etc.
-        """
-        context.userdata.call_intent = CallIntent.NEW_QUOTE
-        logger.info(
-            f"Detected new quote request, handing off to NewQuoteAgent: {context.userdata}"
-        )
-
-        # Hand off to the specialized NewQuoteAgent
-        # The tuple (new_agent, transition_message) triggers the handoff
-        return (
-            NewQuoteAgent(),
-            "Great, I can help you with that.",
-        )
-
-    @function_tool
-    async def route_call_payment_or_documents(
-        self,
-        context: RunContext[CallerInfo],
-    ) -> tuple[Agent, str]:
-        """Route the call for payment or document requests (ID cards, declaration pages).
-
-        Call this when the caller wants to:
-        - Make a payment on their policy
-        - Request ID cards or proof of insurance
-        - Request declarations page / dec page
-        - Get insurance cards
-        - Pay their bill or premium
-
-        Common phrases: "make a payment", "pay my bill", "ID card", "insurance card",
-        "proof of insurance", "declarations page", "dec page", "need my cards"
-        """
-        context.userdata.call_intent = CallIntent.MAKE_PAYMENT
-        logger.info(
-            f"Detected payment/ID-Dec request, handing off to PaymentIDDecAgent: "
-            f"{context.userdata}"
-        )
-
-        # Hand off to the specialized PaymentIDDecAgent
-        # The tuple (new_agent, transition_message) triggers the handoff
-        return (
-            PaymentIDDecAgent(),
-            "I can help you with that.",
-        )
-
-    @function_tool
-    async def route_call_policy_change(
-        self,
-        context: RunContext[CallerInfo],
-    ) -> tuple[Agent, str]:
-        """Route the call for a policy change or modification request.
-
-        Call this when the caller wants to make changes to their existing policy.
-        This includes requests like:
-        - "make a change", "change my policy", "update my policy"
-        - "add a vehicle", "remove a vehicle", "add a driver", "remove a driver"
-        - "swap a truck", "replace a vehicle"
-        - "change address", "update address", "moved"
-        - "add coverage", "remove coverage", "modify coverage"
-        - "modify my policy", "update my policy"
-        - "endorsement", "add endorsement"
-
-        Smart context detection: If the caller mentions business-specific terms like
-        "work truck", "company vehicle", "fleet", the agent will infer business insurance
-        without asking the business/personal question.
-        """
-        context.userdata.call_intent = CallIntent.MAKE_CHANGE
-        logger.info(
-            f"Detected policy change request, handing off to MakeChangeAgent: {context.userdata}"
-        )
-
-        # Hand off to the specialized MakeChangeAgent
-        # The tuple (new_agent, transition_message) triggers the handoff
-        return (
-            MakeChangeAgent(),
-            "I can help you with that.",
-        )
-
-    @function_tool
-    async def route_call_cancellation(
-        self,
-        context: RunContext[CallerInfo],
-    ) -> tuple[Agent, str]:
-        """Route the call for a policy cancellation request.
-
-        Call this when the caller wants to cancel their insurance policy.
-        This includes requests like:
-        - "cancel my policy", "cancellation", "cancel insurance"
-        - "want to cancel", "need to cancel", "stop my policy"
-        - "end my policy", "don't need insurance anymore"
-        - "switching carriers", "found cheaper insurance"
-        - "non-renew", "don't renew"
-        """
-        context.userdata.call_intent = CallIntent.CANCELLATION
-        logger.info(
-            f"Detected cancellation request, handing off to CancellationAgent: {context.userdata}"
-        )
-
-        # Hand off to the specialized CancellationAgent
-        # The tuple (new_agent, transition_message) triggers the handoff
-        return (
-            CancellationAgent(),
-            "I understand you're looking to cancel. Let me help you with that.",
-        )
-
-    @function_tool
-    async def route_call_coverage_rate(
-        self,
-        context: RunContext[CallerInfo],
-    ) -> tuple[Agent, str]:
-        """Route the call for coverage or rate questions.
-
-        Call this when the caller has questions about their coverage or rates.
-        This includes requests like:
-        - "why did my rate go up", "premium increase", "rate change"
-        - "what's my deductible", "what are my limits", "policy limits"
-        - "am I covered for", "does my policy cover", "what's covered"
-        - "what does my policy include", "coverage limits"
-        - "liability coverage", "comprehensive", "collision"
-        - "why is my bill higher", "coverage question", "rate question"
-
-        Smart context detection: If the caller mentions specific insurance types like
-        "my car insurance rate" or "business policy coverage", the agent will infer
-        the insurance type without asking.
-        """
-        context.userdata.call_intent = CallIntent.COVERAGE_RATE_QUESTIONS
-        logger.info(
-            f"Detected coverage/rate question, handing off to CoverageRateAgent: {context.userdata}"
-        )
-
-        # Hand off to the specialized CoverageRateAgent
-        # The tuple (new_agent, transition_message) triggers the handoff
-        return (
-            CoverageRateAgent(),
-            "I can connect you with your Account Executive who can answer that.",
-        )
-
-    @function_tool
     async def route_call_claims(
         self,
         context: RunContext[CallerInfo],
@@ -430,48 +287,6 @@ PERSONALITY:
         return (
             ClaimsAgent(),
             "I'm so sorry to hear that. Let me help you.",
-        )
-
-    @function_tool
-    async def route_call_something_else(
-        self,
-        context: RunContext[CallerInfo],
-    ) -> tuple[Agent, str]:
-        """Route the call for requests that don't fit other specific categories.
-
-        Call this when the caller's request doesn't match any specific intent:
-        - Not a new quote request
-        - Not a payment, ID card, or dec page request
-        - Not a policy change or cancellation
-        - Not coverage or rate questions
-        - Not asking for office hours or a specific agent
-        - Not claims, certificates, or mortgagee questions
-
-        This is the CATCH-ALL handler for miscellaneous requests.
-        The SomethingElseAgent will:
-        1. Ask what insurance type (business/personal)
-        2. Collect a brief summary of their reason for calling
-        3. Get their identifier (business name or last name)
-        4. Perform a WARM TRANSFER to their Account Executive with context
-
-        Examples of "something else" requests:
-        - General questions about their account
-        - Requests that are vague or unclear
-        - Questions about agency processes
-        - Billing disputes or questions not related to payments
-        - Requests to update personal information
-        - Questions about policy documents not covered by other intents
-        """
-        context.userdata.call_intent = CallIntent.SOMETHING_ELSE
-        logger.info(
-            f"Detected 'something else' request, handing off to SomethingElseAgent: {context.userdata}"
-        )
-
-        # Hand off to the specialized SomethingElseAgent
-        # The tuple (new_agent, transition_message) triggers the handoff
-        return (
-            SomethingElseAgent(),
-            "I'd be happy to help you with that. Let me get you to the right person.",
         )
 
     @function_tool
