@@ -45,6 +45,76 @@
   - [x] On-hold experience with HOLD_MESSAGE
   - [x] Write tests for cancellation flow (18 new tests)
 
+- [x] **Coverage & Rate Questions Flow** (CoverageRateAgent) - Added 2026-01-13
+  - [x] Add intent detection keywords (coverage question, rate question, why did my rate go up, premium increase, what's covered, am I covered for, does my policy cover, deductible, what are my limits, liability coverage, comprehensive, collision, why is my bill higher, rate change, policy limits, coverage limits, what does my policy include)
+  - [x] Create `CoverageRateAgent` class following existing patterns
+  - [x] Add `route_call_coverage_rate` handoff in Assistant
+  - [x] Smart context detection for business/personal insurance
+  - [x] Alpha-split routing to Account Executives ONLY (NOT VAs/CSRs - requires licensed professionals)
+    - Personal Lines: Yarislyn (A-G), Al (H-M), Luis (N-Z)
+    - Commercial Lines: Adriana (A-F), Rayvon (G-O), Dionna (P-Z)
+  - [x] Data sheet fallback for callbacks when AE unavailable
+  - [x] Write tests for coverage/rate flow (16 new tests - all passing)
+
+- [x] **Something Else Flow** (SomethingElseAgent) - Added 2026-01-13
+  - [x] Create `SomethingElseAgent` as catch-all/fallback for requests that don't match other intents
+  - [x] Add `route_call_something_else` handoff in Assistant
+  - [x] Flow: Confirm insurance type → Gather summary → Collect identifier → Transfer
+  - [x] `record_request_summary()` tool to capture what the caller needs (stored in `additional_notes`)
+  - [x] Smart context detection for business/personal insurance
+  - [x] Alpha-split routing to Account Executives (same as MakeChange/Cancellation):
+    - Personal Lines: Yarislyn (A-G), Al (H-M), Luis (N-Z)
+    - Commercial Lines: Adriana (A-F), Rayvon (G-O), Dionna (P-Z)
+  - [x] **WARM TRANSFER** with context relay:
+    - Logs warm transfer intro: "Hi [Agent Name], I have [Caller Name] on the line. They're calling about [summary]."
+    - Passes caller context (name, phone, insurance type, summary) to receiving agent
+    - TODO: Implement actual SIP warm transfer (conference call or whisper) when phone system configured
+  - [x] Data sheet fallback for callbacks when AE unavailable
+  - [x] Write tests for something else flow (12 new tests - all passing)
+
+- [x] **Mortgagee, Lienholder & Certificate Requests Flow** (MortgageeCertificateAgent) - Added 2026-01-13
+  - [x] Create `MortgageeCertificateAgent` class (DOES NOT TRANSFER - redirects to email/self-service)
+  - [x] Certificate request flow:
+    - Provides Certificate@hlinsure.com email for written requests
+    - Offers self-service option (Harry Levine Insurance app for 24/7 certificate issuance)
+    - Offers login help (resend credentials or transfer to VA for assistance)
+  - [x] Mortgagee/lienholder request flow:
+    - Provides info@hlinsure.com email for written requests
+    - Offers additional help
+  - [x] Add `route_call_certificate` handoff in Assistant
+    - Keywords: certificate of insurance, COI, need a certificate, proof of insurance, additional insured, vendor certificate, certificate for a job
+  - [x] Add `route_call_mortgagee` handoff in Assistant
+    - Keywords: mortgagee, lienholder, mortgage company, lender needs, bank needs proof, loss payee, mortgage clause
+  - [x] Function tools:
+    - `provide_certificate_email_info()` - certificate email + app info
+    - `provide_mortgagee_email_info()` - mortgagee email info
+    - `check_login_status()` - app login assistance flow
+    - `collect_email_for_credentials()` - collect email to resend app credentials
+    - `transfer_for_login_help()` - transfer to VA ring group for login help
+  - [x] Write tests for certificate/mortgagee flow (26 new tests - all passing)
+
+- [x] **Claims Flow** (ClaimsAgent) - Added 2026-01-13
+  - [x] Create `ClaimsAgent` class with business hours vs after-hours behavior
+  - [x] Business hours flow (Mon-Fri, 9 AM - 5 PM Eastern):
+    - Show empathy for the caller's situation
+    - Transfer to claims ring group via `transfer_to_claims()` tool
+    - TODO: Needs extension(s) for claims ring group from client
+  - [x] After-hours flow:
+    - Show empathy and explain team is not available
+    - Help caller find their carrier's 24/7 claims number via `record_carrier_name()` tool
+    - Offer callback option via `request_callback()` tool
+  - [x] Add `is_office_open()` utility function for business hours check
+  - [x] Add `CARRIER_CLAIMS_NUMBERS` config dict (placeholder with Progressive, Travelers, Hartford, Liberty Mutual)
+  - [x] Add `get_carrier_claims_number()` helper with case-insensitive lookup
+  - [x] Add `route_call_claims` handoff in Assistant (routes immediately with empathy)
+  - [x] Update `CallIntent.CLAIMS` docstring with comprehensive trigger phrases
+  - [x] Trigger phrases: file a claim, make a claim, I had an accident, car accident, fender bender, someone hit me, got into an accident, water damage, fire damage, theft, break-in, vandalism, roof damage, storm damage, hail damage, flooded, pipe burst, need to report a claim
+  - [x] Write tests for claims flow (25 tests passing, 3 skipped for pending carrier numbers)
+  - [x] TODO markers added for pending client input:
+    - Claims ring group extension(s) for business hours
+    - Full list of carrier claims phone numbers
+    - Holiday schedule for after-hours definition
+
 ### Conversation Intelligence
 - [x] **Context awareness for insurance type**
 - [x] **Confirmation before transfer**
@@ -55,6 +125,59 @@
 - [x] Write tests for payment/ID-Dec flow (6 tests)
 - [x] Write tests for restricted transfers (3 tests)
 - [x] Write tests for ring groups (4 tests)
+
+### Business Hours Awareness (Completed 2026-01-13)
+- [x] Create `src/business_hours.py` module with comprehensive configuration
+  - Timezone: America/New_York (Eastern Time)
+  - Schedule: Monday-Friday, 9 AM to 5 PM
+  - Saturday/Sunday: Closed
+- [x] Implement core helper functions:
+  - `get_current_time()` - Returns current time in Eastern timezone
+  - `is_office_open(now=None)` - Returns True/False for business hours (testable with optional datetime)
+  - `get_next_open_time(now=None)` - Returns human-friendly string ("tomorrow at 9 AM", "Monday at 9 AM", "in about 30 minutes")
+  - `get_business_hours_context()` - Returns dict with current_time, is_open, next_open_time, office_hours
+  - `format_business_hours_prompt()` - Returns formatted prompt context block
+- [x] Inject business hours context into LLM prompts:
+  - Assistant instructions include `CURRENT TIME` and `OFFICE STATUS` headers
+  - Example: "CURRENT TIME: 3:45 PM ET, Tuesday" / "OFFICE STATUS: Open (closes at 5 PM)"
+  - Contextual guidance for hours questions (responds differently if open vs closed)
+- [x] Update `provide_hours_and_location` tool for contextual responses
+- [x] Write comprehensive tests (129 tests in test_business_hours.py):
+  - Edge cases: exactly at 9 AM (open), exactly at 5 PM (closed)
+  - DST handling (spring forward, fall back)
+  - Year boundary handling (New Year's)
+  - Timezone consistency tests
+- [x] TODO markers added for pending client input:
+  - Holiday schedule support (future enhancement)
+  - Special hours (early close days)
+
+### After-Hours Voicemail Flow (Completed 2026-01-13)
+- [x] Create `AfterHoursAgent` class for handling after-hours callers
+  - After-hours greeting: "Our office is currently closed. We're open Monday through Friday, 9am to 5pm Eastern."
+  - Collects name, phone, business/personal, identifier (business name or spelled last name)
+  - Offers voicemail transfer to appropriate agent
+- [x] Implement `transfer_to_voicemail` function with alpha-split routing
+  - Personal Lines: A-G → Yarislyn, H-M → Al, N-Z → Luis (Account Executives)
+  - Commercial Lines: A-F → Adriana, G-O → Rayvon, P-Z → Dionna (Account Executives)
+  - Routes to Account Executives (not sales agents) since existing clients call after hours
+- [x] Update Assistant with `on_enter` method for automatic after-hours detection
+  - Uses `_is_after_hours` flag (testable via `is_after_hours` parameter)
+  - Generates appropriate greeting based on office status
+- [x] Add `route_call_after_hours` function tool for manual routing
+- [x] Exception intents that skip voicemail (handled normally after hours):
+  - CLAIMS → ClaimsAgent (provides carrier numbers after hours)
+  - HOURS_LOCATION → Answered directly by `provide_hours_and_location`
+  - CERTIFICATES → MortgageeCertificateAgent (provides email)
+  - MORTGAGEE → MortgageeCertificateAgent (provides email)
+- [x] Write tests for after-hours voicemail flow (20+ tests in TestAfterHoursVoicemailFlow)
+  - Note: Some LLM-judged tests have strict rubrics that may cause flaky failures
+- [x] TODO marker added: Voicemail extension format (same as agent ext, or separate system?)
+
+### Latency Optimizations (Completed 2026-01-13)
+- [x] Tune Silero VAD parameters (min_silence_duration=0.3s, min_speech_duration=0.05s)
+- [x] Configure AssemblyAI STT via extra_kwargs (end_of_turn_confidence_threshold=0.5, min_end_of_turn_silence_when_confident=300ms)
+- [x] Optimize AgentSession timing (min_endpointing_delay=0.3s, max_endpointing_delay=1.5s, min_interruption_duration=0.3s)
+- [x] Create `docs/LATENCY_TUNING.md` with parameter reference and tuning guidelines
 
 ### P0 Bug Fixes (Completed 2026-01-07)
 - [x] Fix IndexError on empty last name string (4 locations - now uses `len() > 0` check)
@@ -119,6 +242,7 @@
 - [ ] Remove duplicate personality sections from sub-agents (~240 token savings)
 - [ ] Move static info (hours, address) to tool outputs (~150 token savings)
 - [ ] Add edge case handling instructions to prompts
+- [ ] **Improve business context detection**: "work truck", "company vehicle", "fleet" should auto-infer business insurance without asking (currently asks for confirmation)
 
 ---
 
@@ -148,7 +272,7 @@
 - [ ] **SIP transfer**: Implement actual SIP transfer when phone system configured
 - [ ] **SIP domain**: Get PBX domain for transfer URLs
 
-### MakeChangeAgent & CancellationAgent Specific
+### MakeChangeAgent, CancellationAgent & SomethingElseAgent Specific
 - [ ] **AE Fallback Routing**: When assigned Account Executive is unavailable, what should happen?
   - Option A: Take a message/data sheet for callback (current behavior)
   - Option B: Ring all Account Executives in the department simultaneously
@@ -157,11 +281,48 @@
 - [ ] **Hold Timeout**: How long should caller wait on hold before fallback triggers?
 - [ ] **Data Sheet Storage**: Where should data sheets be sent/stored? (email, CRM, database)
 
+### Warm Transfer (SomethingElseAgent)
+- [ ] **Warm Transfer Method**: How should the warm transfer handoff work technically?
+  - Option A: Conference call (agent stays on briefly to introduce caller)
+  - Option B: Whisper to agent first (agent hears context before caller joins)
+  - Option C: Consultation room pattern (LiveKit native, full context exchange)
+- [ ] **Context Relay Format**: What info should be relayed to the receiving agent?
+  - Caller name, phone number, insurance type, summary (current implementation)
+  - Additional context: caller mood, urgency level, previous attempts?
+
+### MortgageeCertificateAgent Specific
+- [ ] **Login Credential Resend**: If caller needs login credentials resent, who handles that?
+  - Option A (current): Collect email and trigger automated resend
+  - Option B: Transfer to VA/CSR ring group for manual credential reset
+- [ ] **App Download Links**: Should we provide download links for the Harry Levine Insurance app?
+  - iOS App Store link?
+  - Google Play link?
+
+### ClaimsAgent Specific
+- [ ] **Claims Ring Group Extension(s)**: What extension(s) should handle claims during business hours?
+  - TODO: Get claims team extension(s) from client
+  - Current behavior: Mock transfer with log message
+- [ ] **Verify Carrier Claims Numbers**: Placeholder numbers added for all major carriers - VERIFY before production
+  - National carriers (need verification): Progressive, Travelers, Hartford, Liberty Mutual, State Farm, Allstate, GEICO, Nationwide, USAA, Farmers, American Family, Auto-Owners, Erie, Safeco
+  - Florida regional carriers (FAKE 555 numbers): Citizens, Florida Peninsula, Universal Property, Tower Hill, Heritage, People's Trust, Security First
+
+### Business Hours Specific
+- [ ] **Holiday Schedule**: Does the office close for holidays?
+  - Current: Only weekends (Sat/Sun) are after-hours
+  - Needed: Federal holidays, office-specific closures
+  - Implementation ready: Add holiday dates to `business_hours.py`
+- [ ] **Special Hours Days**: Any early close days (e.g., close at 3pm on Fridays)?
+  - Current: M-F 9am-5pm standard hours
+  - Implementation: Modify WEEKLY_SCHEDULE in business_hours.py
+- [ ] **Holiday Calendar Format**: Preferred format for holiday configuration?
+  - Option A: Hard-coded Python dict (simple, requires code update annually)
+  - Option B: External JSON/YAML config file (easier updates)
+  - Option C: API integration (e.g., Google Calendar, iCalendar feed)
+
 ---
 
 ## Future Enhancements
 
-- [ ] Add claims intent handler
 - [ ] Implement on-hold music/periodic check-in during transfers
 - [ ] Add call recording and transcription logging
 - [ ] Implement agent availability checking (phone system integration)
@@ -182,4 +343,4 @@ See `docs/REVIEW_AUDIT_REPORT.md` for the full multi-agent analysis including:
 
 ---
 
-*Last updated: 2026-01-13 (CancellationAgent added)*
+*Last updated: 2026-01-13 (Business Hours Awareness module added with prompt context injection)*
