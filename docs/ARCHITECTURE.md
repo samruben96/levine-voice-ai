@@ -35,17 +35,18 @@ The Harry Levine Insurance Voice Agent is a voice AI system built on the LiveKit
 
 ### Key Features
 
-- **Multi-agent workflow**: Specialized sub-agents handle specific call types
+- **Single-agent architecture**: Assistant handles all routing directly via transfer tools
 - **Alpha-split routing**: Calls routed based on business/last name first letter
 - **Ring group support**: Multiple agents can be called simultaneously
 - **Restricted transfers**: Certain staff require live-person handling
 - **PII masking**: Caller information masked in logs
+- **No double-asking**: Callers provide information once (fixed in Phase 5)
 
 ---
 
 ## Agent Architecture
 
-The system uses a multi-agent architecture with handoffs between specialized agents based on call intent.
+The system uses a **single-agent architecture** where the Assistant handles all routing directly via transfer tools. This design eliminates the "double-asking" bug where callers were asked the same questions twice after handoffs.
 
 ```
 +---------------------------------------------------------------------+
@@ -66,60 +67,84 @@ The system uses a multi-agent architecture with handoffs between specialized age
 |                       Assistant Agent                               |
 |              (Front Desk Receptionist - Aizellee)                   |
 |                                                                     |
-|   Intent Detection --> Information Collection --> Routing           |
+|   Intent Detection --> Information Collection --> Direct Transfer   |
+|                                                                     |
+|   Transfer Tools:                                                   |
+|   - transfer_new_quote       (routes to Sales Agents)               |
+|   - transfer_payment         (routes to VA or Account Execs)        |
+|   - transfer_policy_change   (routes to Account Executives)         |
+|   - transfer_cancellation    (routes to Account Executives)         |
+|   - transfer_coverage_question (routes to Account Executives)       |
+|   - transfer_something_else  (warm transfer to Account Execs)       |
 +---------------------------------------------------------------------+
              |                                       |
+             | (handoff only for specialized flows)  |
              v                                       v
 +------------------------+             +---------------------------+
-|    NewQuoteAgent       |             |    PaymentIDDecAgent      |
+|    ClaimsAgent         |             |  MortgageeCertificateAgent|
 |                        |             |                           |
-| - Business quotes      |             | - Payments                |
-| - Personal quotes      |             | - ID cards                |
-| - Alpha-split route    |             | - Dec pages               |
-+------------------------+             | - VA ring group           |
-                                       +---------------------------+
+| - Business hours check |             | - Provides email info     |
+| - Carrier claims lookup|             | - Self-service app option |
+| - Empathy handling     |             | - No transfer needed      |
++------------------------+             +---------------------------+
+             |
+             v
++------------------------+
+|   AfterHoursAgent      |
+|                        |
+| - Voicemail routing    |
+| - Alpha-split to AEs   |
++------------------------+
 ```
 
 ### Agent Responsibilities
 
 #### Assistant (Main Agent)
 
-The primary entry point for all calls. Responsibilities:
+The primary entry point for all calls. Handles ALL routing directly:
 
 - Greet callers with standard greeting
 - Detect call intent from initial request
-- Collect basic contact information (name, phone)
-- Route to specialized sub-agents for specific workflows
+- Collect contact information (name, phone)
+- Collect insurance type and identifier (business name or last name)
+- **Execute direct transfers** using transfer tools (no handoff)
 - Handle direct answers (hours, location)
 - Process specific agent requests
+- Handoff ONLY for: Claims, Certificates/Mortgagee, After-hours
 
-#### NewQuoteAgent
+#### Transfer Tools (in Assistant)
 
-Handles new insurance quote requests. Triggered when caller wants:
+| Tool | Purpose | Routing |
+|------|---------|---------|
+| `transfer_new_quote` | New quote requests | Alpha-split to Sales Agents |
+| `transfer_payment` | Payments, ID cards, dec pages | VA ring group or Account Execs |
+| `transfer_policy_change` | Policy modifications | Alpha-split to Account Execs |
+| `transfer_cancellation` | Policy cancellations | Alpha-split to Account Execs |
+| `transfer_coverage_question` | Coverage/rate questions | Alpha-split to Account Execs |
+| `transfer_something_else` | Other inquiries | Warm transfer to Account Execs |
 
-- New insurance policy
-- Quote for coverage
-- Pricing information
+#### ClaimsAgent
 
-Flow:
-1. Confirm insurance type (business vs personal)
-2. Collect business name OR last name (spelled)
-3. Route via alpha-split to appropriate sales agent
+Handles claims with business hours awareness:
 
-#### PaymentIDDecAgent
+- During business hours: Show empathy, transfer to claims team
+- After hours: Show empathy, provide carrier's 24/7 claims number
 
-Handles payment and document requests. Triggered when caller wants:
+#### MortgageeCertificateAgent
 
-- Make a payment
-- Request ID cards
-- Request declarations page
-- Proof of insurance
+Handles certificate and mortgagee requests (no transfer needed):
 
-Flow:
-1. Confirm insurance type (business vs personal)
-2. Collect business name OR last name (spelled)
-3. Try VA ring group first
-4. Fallback to Account Executives via alpha-split
+- Provides Certificate@hlinsure.com for certificate requests
+- Provides info@hlinsure.com for mortgagee requests
+- Offers self-service app option
+
+#### AfterHoursAgent
+
+Handles after-hours calls:
+
+- Informs caller the office is closed
+- Collects name, phone, insurance type, identifier
+- Routes to voicemail via alpha-split
 
 ---
 
@@ -143,25 +168,29 @@ class CallerInfo:
     assigned_agent: str | None          # Agent determined by routing
 ```
 
-### State Flow During Handoffs
+### State Flow (Single-Agent Design)
 
 ```
-Assistant                      Sub-Agent
-    |                              |
-    |-- CallerInfo (shared) ------>|
-    |   - name                     |
-    |   - phone_number             |
-    |   - (partial intent)         |
-    |                              |
-    |                              | (collects additional info)
-    |                              | - insurance_type
-    |                              | - business_name / last_name
-    |                              | - assigned_agent
-    |                              |
-    |<---- CallerInfo (updated) ---|
+Assistant (handles everything)
+    |
+    | 1. Greet caller
+    | 2. Detect intent
+    | 3. Collect name/phone
+    | 4. Collect insurance type
+    | 5. Collect business name OR last name
+    | 6. Execute transfer tool
+    |
+    v
++-- Direct Transfer (no handoff) ---+
+    |                               |
+    | OR (for specialized flows):   |
+    |                               |
+    v                               v
+ClaimsAgent                MortgageeCertificateAgent
+AfterHoursAgent
 ```
 
-The `CallerInfo` object is passed via `RunContext[CallerInfo]` and persists across agent handoffs within the same session.
+The `CallerInfo` object is maintained in `RunContext[CallerInfo]` throughout the conversation. With the single-agent design, there are no handoffs for most call types - the Assistant collects all information and executes transfers directly.
 
 ### What Data is Preserved vs Reset
 
@@ -337,6 +366,8 @@ context.userdata.assigned_agent = agent["name"]
 
 ## Conversation State Diagram
 
+With the single-agent architecture, the conversation flow is streamlined:
+
 ```
                           +-------------+
                           |   START     |
@@ -359,71 +390,69 @@ context.userdata.assigned_agent = agent["name"]
           |                      |                      |
           v                      v                      v
    +------+------+        +------+------+        +------+------+
-   | DIRECT      |        | EARLY       |        | STANDARD    |
-   | ANSWER      |        | HANDOFF     |        | FLOW        |
-   | (hours/loc) |        | (quote/pay) |        | (other)     |
-   +------+------+        +------+------+        +------+------+
-          |                      |                      |
-          v                      v                      v
-   +------+------+        +------+------+        +------+------+
-   | COMPLETE    |        | CONTACT     |        | CONTACT     |
-   | (answered)  |        | INFO        |        | INFO        |
-   +-------------+        | (name/phone)|        | (name/phone)|
-                         +------+------+        +------+------+
-                                |                      |
-                                v                      v
-                         +------+------+        +------+------+
-                         | SUB-AGENT   |        | INSURANCE   |
-                         | HANDOFF     |        | TYPE        |
-                         +------+------+        | (bus/pers)  |
-                                |               +------+------+
-                                v                      |
-                         +------+------+               v
-                         | TYPE        |        +------+------+
-                         | DETECTION   |        | IDENTIFIER  |
-                         | (bus/pers)  |        | COLLECTION  |
-                         +------+------+        | (name/biz)  |
-                                |               +------+------+
-                                v                      |
-                         +------+------+               v
-                         | IDENTIFIER  |        +------+------+
-                         | COLLECTION  |        | CONFIRM &   |
-                         +------+------+        | ROUTE       |
-                                |               +------+------+
-                                v                      |
-                         +------+------+               v
-                         | CONFIRM &   |        +------+------+
-                         | TRANSFER    |        | TRANSFER    |
-                         +------+------+        +------+------+
-                                |                      |
-                                +----------+-----------+
-                                           |
-                                           v
-                                    +------+------+
-                                    |    END      |
-                                    | (call ends) |
-                                    +-------------+
+   | DIRECT      |        | TRANSFER    |        | SPECIALIZED |
+   | ANSWER      |        | FLOW        |        | HANDOFF     |
+   | (hours/loc) |        | (quote/pay/ |        | (claims/    |
+   +------+------+        |  change/etc)|        |  certs)     |
+          |               +------+------+        +------+------+
+          v                      |                      |
+   +------+------+               v                      v
+   | COMPLETE    |        +------+------+        +------+------+
+   | (answered)  |        | CONTACT     |        | AGENT       |
+   +-------------+        | INFO        |        | HANDOFF     |
+                         | (name/phone)|        +------+------+
+                         +------+------+               |
+                                |                      v
+                                v               (ClaimsAgent,
+                         +------+------+        MortgageeCert,
+                         | INSURANCE   |        AfterHours)
+                         | TYPE        |
+                         | (bus/pers)  |
+                         +------+------+
+                                |
+                                v
+                         +------+------+
+                         | IDENTIFIER  |
+                         | COLLECTION  |
+                         | (name/biz)  |
+                         +------+------+
+                                |
+                                v
+                         +------+------+
+                         | DIRECT      |
+                         | TRANSFER    |
+                         | (via tool)  |
+                         +------+------+
+                                |
+                                v
+                         +------+------+
+                         |    END      |
+                         | (call ends) |
+                         +-------------+
 ```
 
-### State Transitions
+### State Transitions (Single-Agent)
 
 | From State | Event | To State |
 |------------|-------|----------|
 | START | Call connected | GREETING |
 | GREETING | Greeting delivered | INTENT DETECTION |
 | INTENT DETECTION | Hours/location request | DIRECT ANSWER |
-| INTENT DETECTION | Quote request | EARLY HANDOFF |
-| INTENT DETECTION | Payment request | EARLY HANDOFF |
-| INTENT DETECTION | Other request | STANDARD FLOW |
-| EARLY HANDOFF | Contact collected | SUB-AGENT HANDOFF |
-| SUB-AGENT HANDOFF | Agent takes over | TYPE DETECTION |
-| TYPE DETECTION | Type confirmed | IDENTIFIER COLLECTION |
-| IDENTIFIER COLLECTION | Info collected | CONFIRM & TRANSFER |
-| STANDARD FLOW | Contact collected | INSURANCE TYPE |
+| INTENT DETECTION | Quote/Payment/Change/etc | TRANSFER FLOW |
+| INTENT DETECTION | Claims/Certs/After-hours | SPECIALIZED HANDOFF |
+| DIRECT ANSWER | Question answered | COMPLETE |
+| TRANSFER FLOW | Intent detected | CONTACT INFO |
+| CONTACT INFO | Name/phone collected | INSURANCE TYPE |
 | INSURANCE TYPE | Type confirmed | IDENTIFIER COLLECTION |
-| IDENTIFIER COLLECTION | Info collected | CONFIRM & ROUTE |
-| CONFIRM & ROUTE | Confirmed | TRANSFER |
-| TRANSFER | Transfer initiated | END |
+| IDENTIFIER COLLECTION | Business name or last name collected | DIRECT TRANSFER |
+| DIRECT TRANSFER | Transfer tool executed | END |
+| SPECIALIZED HANDOFF | Agent handoff | (Agent-specific flow) |
+
+### Key Difference from Previous Architecture
+
+Previously, the flow included "SUB-AGENT HANDOFF" states where the conversation context was passed to another agent (NewQuoteAgent, MakeChangeAgent, etc.). This caused the "double-asking" bug because sub-agents would re-confirm information.
+
+Now, the Assistant handles the entire TRANSFER FLOW directly and executes transfers via tools without handoffs.
 
 ---
 
@@ -555,19 +584,38 @@ LIVEKIT_API_SECRET   # LiveKit API secret
 
 ```
 src/
-  agent.py              # Main entry point, agent definitions
-  staff_directory.py    # Staff data and routing functions
+  __init__.py              # Package init
+  models.py                # CallerInfo, CallIntent, InsuranceType
+  utils.py                 # PII masking utilities
+  constants.py             # HOLD_MESSAGE, CARRIER_CLAIMS_NUMBERS
+  main.py                  # Server setup, entry point
+  agent.py                 # Backwards compatibility wrapper
+  instruction_templates.py # Token-optimized instruction fragments
+  business_hours.py        # Business hours utilities
+  staff_directory.py       # Staff data and routing logic
+  agents/
+    __init__.py            # Exports: Assistant, ClaimsAgent, MortgageeCertificateAgent, AfterHoursAgent
+    assistant.py           # Main Assistant with transfer tools
+    claims.py              # ClaimsAgent
+    mortgagee.py           # MortgageeCertificateAgent
+    after_hours.py         # AfterHoursAgent
 
 tests/
-  test_agent.py         # Agent behavior tests
-  test_staff_directory.py # Routing logic tests
+  conftest.py              # Shared fixtures
+  test_utils.py            # Utility function tests
+  unit/                    # Fast unit tests
+  integration/             # LLM integration tests
+  test_agent.py            # Original (compatibility)
+  test_staff_directory.py  # Routing logic tests
+  test_business_hours.py   # Business hours tests
 
 docs/
-  ARCHITECTURE.md       # This document
-  OPERATIONS.md         # Operational guide
-  REVIEW_AUDIT_REPORT.md # Code review findings
+  ARCHITECTURE.md          # This document
+  OPERATIONS.md            # Operational guide
+  LATENCY_TUNING.md        # Voice latency optimization
+  BASE_ROUTING_AGENT_DESIGN.md # Historical (superseded by Phase 5)
 ```
 
 ---
 
-*Last updated: 2026-01-07*
+*Last updated: 2026-01-14 (Phase 5: Single-Agent Architecture)*

@@ -2,6 +2,14 @@
 
 ## Completed
 
+### Architecture Simplification - Phase 5 (Completed 2026-01-14)
+- [x] **Single-agent architecture**: Replaced multi-agent handoffs with direct transfer tools
+- [x] **Double-asking bug fix**: Callers no longer asked same questions twice after handoff
+- [x] **Removed sub-agents**: NewQuoteAgent, PaymentIDDecAgent, MakeChangeAgent, CancellationAgent, CoverageRateAgent, SomethingElseAgent
+- [x] **Removed BaseRoutingAgent**: No longer needed with single-agent design
+- [x] **Added transfer tools**: transfer_new_quote, transfer_payment, transfer_policy_change, transfer_cancellation, transfer_coverage_question, transfer_something_else
+- [x] **Kept specialized agents**: ClaimsAgent, MortgageeCertificateAgent, AfterHoursAgent (for flows that genuinely need separate handling)
+
 ### Staff Directory & Routing (92/92 tests passing)
 - [x] Create staff directory configuration (`src/staff_directory.py`)
 - [x] Implement routing helper functions with alpha-split logic
@@ -250,13 +258,13 @@
 
 ### Code Quality
 - [ ] Add `slots=True` to dataclasses for performance
-- [ ] Split large `agent.py` into smaller modules
+- [x] ~~Split large `agent.py` into smaller modules~~ - COMPLETED (Phase 3, simplified in Phase 5)
 - [ ] Add mypy configuration to `pyproject.toml`
 - [ ] Remove unused `NEW_QUOTE_KEYWORDS` and `PAYMENT_IDDEC_KEYWORDS` constants
 - [ ] Move hardcoded Cartesia voice ID to config
 
 ### Architecture
-- [ ] Pre-instantiate sub-agents instead of creating on handoff
+- [x] ~~Pre-instantiate sub-agents instead of creating on handoff~~ - RESOLVED (Phase 5: sub-agents removed, direct transfer tools used)
 - [ ] Add structured logging with correlation IDs
 - [ ] Add custom metrics (intent distribution, transfer success rate)
 
@@ -343,4 +351,4 @@ See `docs/REVIEW_AUDIT_REPORT.md` for the full multi-agent analysis including:
 
 ---
 
-*Last updated: 2026-01-13 (Business Hours Awareness module added with prompt context injection)*
+*Last updated: 2026-01-14 (Phase 5: Single-agent architecture - double-asking bug fixed)*

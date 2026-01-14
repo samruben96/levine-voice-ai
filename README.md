@@ -16,12 +16,22 @@ A voice AI front-desk receptionist for Harry Levine Insurance, built with [LiveK
 - **Department-specific routing**: Different routing rules for CL Account Executives, PL Sales Agents, and PL Account Executives
 - **Restricted transfer logic**: Certain staff members (Jason L., Fred) require a live person to answer before transfers
 
+### Direct Transfer Tools
+
+The main Assistant agent handles all routing directly using specialized transfer tools:
+
+- **transfer_new_quote**: Routes new quote requests to sales agents via alpha-split
+- **transfer_payment**: Routes payment and document requests to VA ring group or Account Executives
+- **transfer_policy_change**: Routes policy change requests to Account Executives
+- **transfer_cancellation**: Routes cancellation requests with empathy to Account Executives
+- **transfer_coverage_question**: Routes coverage/rate questions to Account Executives
+- **transfer_something_else**: Routes other inquiries with warm transfer support
+
 ### Specialized Sub-Agents
 
-- **NewQuoteAgent**: Handles new quote requests with tailored conversation flows for business and personal insurance
-- **PaymentIDDecAgent**: Manages payment and document requests (ID cards, declarations pages)
-- **MakeChangeAgent**: Handles policy change/modification requests with smart context detection
-- **CancellationAgent**: Handles policy cancellation requests with empathetic tone and fallback options
+- **ClaimsAgent**: Handles claims with business hours detection and carrier claims number lookup
+- **MortgageeCertificateAgent**: Provides email addresses and self-service options (no transfer)
+- **AfterHoursAgent**: Handles after-hours calls with voicemail routing
 
 ### Ring Group Support
 
@@ -41,7 +51,6 @@ src/
   models.py                # CallerInfo, CallIntent, InsuranceType
   utils.py                 # PII masking: mask_phone, mask_name
   constants.py             # HOLD_MESSAGE, CARRIER_CLAIMS_NUMBERS
-  base_agent.py            # BaseRoutingAgent (shared routing logic)
   main.py                  # Server setup, entry point
   agent.py                 # Backwards compatibility wrapper
   instruction_templates.py # Token-optimized instruction fragments
@@ -49,27 +58,21 @@ src/
   staff_directory.py       # Staff data and routing logic
   agents/
     __init__.py            # Exports all agents
-    assistant.py           # Main Assistant (front desk)
-    quote.py               # NewQuoteAgent
-    payment.py             # PaymentIDDecAgent
-    changes.py             # MakeChangeAgent
-    cancellation.py        # CancellationAgent
-    claims.py              # ClaimsAgent
-    coverage.py            # CoverageRateAgent
-    something_else.py      # SomethingElseAgent
-    mortgagee.py           # MortgageeCertificateAgent
-    after_hours.py         # AfterHoursAgent
+    assistant.py           # Main Assistant (front desk, handles all routing)
+    claims.py              # ClaimsAgent (business hours + carrier lookup)
+    mortgagee.py           # MortgageeCertificateAgent (email/self-service)
+    after_hours.py         # AfterHoursAgent (voicemail routing)
 
 tests/
   conftest.py              # Enhanced shared fixtures
-  test_utils.py            # Utility function tests (63 tests)
-  unit/                    # Fast unit tests (76 tests)
+  test_utils.py            # Utility function tests
+  unit/                    # Fast unit tests
     test_caller_info.py
     test_phone_validation.py
     test_environment.py
     test_carrier_claims.py
     test_agent_instructions.py
-  integration/             # LLM integration tests (131 tests)
+  integration/             # LLM integration tests
     test_greeting.py
     test_security.py
     test_quote_flow.py
@@ -82,9 +85,8 @@ tests/
     test_mortgagee_cert.py
     test_after_hours.py
   test_agent.py            # Original (kept for compatibility)
-  test_staff_directory.py  # Routing logic tests (62 tests)
-  test_business_hours.py   # Business hours tests (129 tests)
-  test_base_routing.py     # BaseRoutingAgent tests (41 tests)
+  test_staff_directory.py  # Routing logic tests
+  test_business_hours.py   # Business hours tests
 ```
 
 ### Agent Hierarchy
@@ -92,54 +94,65 @@ tests/
 ```
 Agent (LiveKit base)
     |
-    +-- BaseRoutingAgent (shared routing logic - NEW)
+    +-- Assistant (Main Front Desk - handles all routing directly)
     |       |
-    |       +-- NewQuoteAgent (Quote requests)
+    |       +-- transfer_new_quote tool
     |       |       - Collects business/personal info
     |       |       - Routes to sales agents via alpha-split
     |       |
-    |       +-- MakeChangeAgent (Policy changes)
-    |       |       - Collects business/personal info
+    |       +-- transfer_payment tool
+    |       |       - Routes to VA ring group or Account Executives
+    |       |
+    |       +-- transfer_policy_change tool
     |       |       - Routes to Account Executives via alpha-split
     |       |
-    |       +-- CancellationAgent (Policy cancellations)
-    |       |       - Shows empathy, collects business/personal info
+    |       +-- transfer_cancellation tool
+    |       |       - Shows empathy, routes to Account Executives
+    |       |
+    |       +-- transfer_coverage_question tool
     |       |       - Routes to Account Executives via alpha-split
     |       |
-    |       +-- SomethingElseAgent (Other inquiries)
-    |       |       - Warm transfer support
-    |       |       - Routes to Account Executives
-    |       |
-    |       +-- CoverageRateAgent (Coverage/rate questions)
-    |               - Routes to Account Executives via alpha-split
+    |       +-- transfer_something_else tool
+    |               - Warm transfer support to Account Executives
     |
-    +-- PaymentIDDecAgent (Payments/Documents - separate pattern)
-    |       - Collects business/personal info
-    |       - Routes to VA ring group or Account Executives
-    |
-    +-- ClaimsAgent (Claims filing)
+    +-- ClaimsAgent (Claims filing - handoff from Assistant)
     |       - Business hours: empathy + transfer to claims team
     |       - After hours: empathy + carrier claims number lookup
     |
-    +-- Assistant (Main Front Desk - orchestrates handoffs)
+    +-- MortgageeCertificateAgent (Certificates/Mortgagee - handoff from Assistant)
+    |       - Provides email addresses for requests
+    |       - Offers self-service app option
+    |
+    +-- AfterHoursAgent (After-hours calls - handoff from Assistant)
+            - Collects caller info
+            - Routes to voicemail via alpha-split
 ```
+
+### Architecture Benefits
+
+The single-agent architecture with direct transfer tools provides several advantages:
+
+1. **No double-asking**: Callers are not asked the same questions twice (previously a bug with multi-agent handoffs)
+2. **Simpler conversation flow**: All routing logic in one place
+3. **Faster response**: No handoff latency between agents
+4. **Easier maintenance**: Fewer agent classes to manage
 
 ### Call Intent Categories
 
-| Intent | Description |
-|--------|-------------|
-| NEW_QUOTE | New insurance quote requests |
-| MAKE_PAYMENT | Payments, ID cards, declarations pages |
-| MAKE_CHANGE | Policy modifications |
-| CANCELLATION | Policy cancellation requests |
-| COVERAGE_RATE_QUESTIONS | Coverage or rate inquiries |
-| POLICY_REVIEW_RENEWAL | Annual reviews and renewals |
-| CLAIMS | Filing claims (business hours: transfer; after hours: carrier lookup) |
-| MORTGAGEE_LIENHOLDERS | Mortgagee/lienholder inquiries |
-| CERTIFICATES | Certificate of insurance requests |
-| HOURS_LOCATION | Office hours and directions |
-| SPECIFIC_AGENT | Requests for a specific person |
-| SOMETHING_ELSE | Other inquiries |
+| Intent | Description | Handling |
+|--------|-------------|----------|
+| NEW_QUOTE | New insurance quote requests | Direct transfer via `transfer_new_quote` |
+| MAKE_PAYMENT | Payments, ID cards, declarations pages | Direct transfer via `transfer_payment` |
+| MAKE_CHANGE | Policy modifications | Direct transfer via `transfer_policy_change` |
+| CANCELLATION | Policy cancellation requests | Direct transfer via `transfer_cancellation` |
+| COVERAGE_RATE_QUESTIONS | Coverage or rate inquiries | Direct transfer via `transfer_coverage_question` |
+| POLICY_REVIEW_RENEWAL | Annual reviews and renewals | Direct transfer to Account Executive |
+| CLAIMS | Filing claims | Handoff to ClaimsAgent |
+| MORTGAGEE_LIENHOLDERS | Mortgagee/lienholder inquiries | Handoff to MortgageeCertificateAgent |
+| CERTIFICATES | Certificate of insurance requests | Handoff to MortgageeCertificateAgent |
+| HOURS_LOCATION | Office hours and directions | Direct answer (no transfer) |
+| SPECIFIC_AGENT | Requests for a specific person | Direct transfer or message |
+| SOMETHING_ELSE | Other inquiries | Direct transfer via `transfer_something_else` |
 
 ## Quick Start
 
@@ -352,7 +365,7 @@ The project includes [AGENTS.md](AGENTS.md) with LiveKit-specific conventions fo
 
 - [OPERATIONS.md](docs/OPERATIONS.md) - Staff directory management and routing configuration
 - [LATENCY_TUNING.md](docs/LATENCY_TUNING.md) - Voice latency optimization parameters and tuning guide
-- [BASE_ROUTING_AGENT_DESIGN.md](docs/BASE_ROUTING_AGENT_DESIGN.md) - BaseRoutingAgent architecture design (implemented)
+- [BASE_ROUTING_AGENT_DESIGN.md](docs/BASE_ROUTING_AGENT_DESIGN.md) - Historical BaseRoutingAgent design (superseded by single-agent architecture)
 - [TEST_RESTRUCTURING_PLAN.md](docs/TEST_RESTRUCTURING_PLAN.md) - Test suite restructuring plan (COMPLETED)
 - [PROJECT_STATUS.md](PROJECT_STATUS.md) - Current project status and Phase 1/2 completion report
 - [AGENTS.md](AGENTS.md) - LiveKit Agents project conventions

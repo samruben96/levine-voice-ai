@@ -3,8 +3,8 @@
 **Harry Levine Insurance Voice Agent**
 
 **Report Date:** 2026-01-13
-**Last Updated:** 2026-01-14 (Phase 4 Complete)
-**Status:** 502 tests (76 unit + 131 integration + 295 compatibility), Test restructuring complete
+**Last Updated:** 2026-01-14 (Phase 5 Complete - Single-Agent Architecture)
+**Status:** Single-agent architecture with direct transfer tools
 **Reviewed By:** Multi-Agent Analysis Session (LiveKit Expert, Code Reviewer, Prompt Engineer)
 
 ---
@@ -21,13 +21,13 @@ This report consolidates findings from a comprehensive multi-agent review sessio
 
 | Area | Status | Key Finding |
 |------|--------|-------------|
-| Architecture | Good | Well-designed multi-agent handoff system |
+| Architecture | Excellent | Single-agent with direct transfer tools (simplified from multi-agent) |
 | LiveKit Integration | Good | Properly configured VAD, STT, TTS pipeline |
-| Code Quality | Excellent | Modular architecture, BaseRoutingAgent extracts common patterns |
-| Test Coverage | Excellent | 502 tests across unit/integration/compatibility files |
-| Security | Partial | Main agent protected, sub-agents need guardrails |
+| Code Quality | Excellent | Simplified architecture, reduced agent count |
+| Test Coverage | Good | Tests across unit/integration/compatibility files |
+| Security | Good | Main agent protected with guardrails |
 | Token Efficiency | Improved | instruction_templates.py created for optimization |
-| Production Readiness | Near Ready | Several high-priority fixes required |
+| Production Readiness | Near Ready | Double-asking bug fixed, simplified flow |
 
 ---
 
@@ -71,39 +71,31 @@ No `on_shutdown()` callback is registered. For production telephony:
 - Resource cleanup
 - Session state logging
 
-#### 2.4 Monolithic Agent File
-**Severity:** High - **RESOLVED in Phase 3**
-**Location:** Previously `src/agent.py` - 3,666 lines, 10+ agent classes
+#### 2.4 Architecture Simplification
+**Severity:** High - **RESOLVED in Phase 5**
+**Location:** Previously multiple agent files with handoff complexity
 
-~~File contains:~~
-- ~~`Assistant` (main agent)~~
-- ~~`NewQuoteAgent`~~
-- ~~`PaymentIDDecAgent`~~
-- ~~`MakeChangeAgent`~~
-- ~~`CancellationAgent`~~
-- ~~`ClaimsAgent`~~
-- ~~`AfterHoursAgent`~~
-- ~~`SomethingElseAgent`~~
-- ~~`CoverageRateAgent`~~
-- ~~`MortgageeCertificateAgent`~~
+~~Previous multi-agent architecture caused issues:~~
+- ~~Double-asking bug: Callers asked same questions twice after handoff~~
+- ~~Complex handoff flow between 10+ agent classes~~
+- ~~BaseRoutingAgent needed to share common routing logic~~
 
-**Resolution (Phase 3):** Code has been split into modular structure:
-- `src/base_agent.py` - BaseRoutingAgent (161 lines)
-- `src/models.py` - CallerInfo, CallIntent, InsuranceType (238 lines)
-- `src/utils.py` - mask_phone, mask_name, validate_phone (110 lines)
-- `src/constants.py` - HOLD_MESSAGE, CARRIER_CLAIMS_NUMBERS (97 lines)
-- `src/main.py` - Server setup, entry point (212 lines)
-- `src/agent.py` - Backwards compatibility wrapper (106 lines)
-- `src/agents/assistant.py` - Main Assistant (740 lines)
-- `src/agents/quote.py` - NewQuoteAgent (193 lines)
-- `src/agents/payment.py` - PaymentIDDecAgent (194 lines)
-- `src/agents/changes.py` - MakeChangeAgent (215 lines)
-- `src/agents/cancellation.py` - CancellationAgent (224 lines)
-- `src/agents/claims.py` - ClaimsAgent (232 lines)
-- `src/agents/coverage.py` - CoverageRateAgent (227 lines)
-- `src/agents/something_else.py` - SomethingElseAgent (294 lines)
-- `src/agents/mortgagee.py` - MortgageeCertificateAgent (242 lines)
-- `src/agents/after_hours.py` - AfterHoursAgent (258 lines)
+**Resolution (Phase 5):** Simplified to single-agent architecture:
+- `src/agents/assistant.py` - Main Assistant with direct transfer tools
+- `src/agents/claims.py` - ClaimsAgent (only for claims-specific flow)
+- `src/agents/mortgagee.py` - MortgageeCertificateAgent (email/self-service)
+- `src/agents/after_hours.py` - AfterHoursAgent (voicemail routing)
+
+**Removed agents (functionality moved to Assistant transfer tools):**
+- ~~NewQuoteAgent~~ -> `transfer_new_quote` tool
+- ~~PaymentIDDecAgent~~ -> `transfer_payment` tool
+- ~~MakeChangeAgent~~ -> `transfer_policy_change` tool
+- ~~CancellationAgent~~ -> `transfer_cancellation` tool
+- ~~CoverageRateAgent~~ -> `transfer_coverage_question` tool
+- ~~SomethingElseAgent~~ -> `transfer_something_else` tool
+
+**Removed base class (no longer needed):**
+- ~~BaseRoutingAgent~~ - Common routing logic now in Assistant
 
 #### 2.5 Test File Too Large
 **Severity:** High - **RESOLVED in Phase 4**
@@ -122,21 +114,18 @@ No `on_shutdown()` callback is registered. For production telephony:
 - Original `test_agent.py` kept for backwards compatibility
 
 #### 2.6 No Base Class for Common Transfer Logic
-**Severity:** High
-**Impact:** Significant code duplication across agents
+**Severity:** High - **RESOLVED in Phase 5 (Alternative Approach)**
+**Impact:** Previously significant code duplication across agents
 
-Methods duplicated across multiple agent classes:
-- `_initiate_transfer()` - Appears in 5+ agents
-- `_handle_fallback()` - Duplicated logic
-- `_take_data_sheet()` - Nearly identical in 4 agents
+~~Methods duplicated across multiple agent classes:~~
+- ~~`_initiate_transfer()` - Appears in 5+ agents~~
+- ~~`_handle_fallback()` - Duplicated logic~~
+- ~~`_take_data_sheet()` - Nearly identical in 4 agents~~
 
-**Recommendation:** Create `BaseRoutingAgent` class:
-```python
-class BaseRoutingAgent(Agent):
-    async def _initiate_transfer(self, context, agent): ...
-    async def _handle_fallback(self, context): ...
-    async def _take_data_sheet(self, context): ...
-```
+**Resolution:** Instead of creating a BaseRoutingAgent class, the architecture was simplified:
+- All routing sub-agents were removed
+- Transfer logic consolidated into Assistant's transfer tools
+- No code duplication since only one agent handles routing
 
 ### Medium Priority Issues
 
@@ -317,172 +306,122 @@ Some trigger phrases could match multiple intents:
 
 ---
 
-## 5. Phase 2: BaseRoutingAgent Refactoring (COMPLETED)
+## 5. Phase 2-4: Historical (Superseded by Phase 5)
 
-**Completed:** 2026-01-13
-**Test Result:** 391 tests total (378 passing, 13 skipped)
+> **Note:** Phases 2-4 implemented a BaseRoutingAgent-based multi-agent architecture. This approach was **superseded by Phase 5** which simplified to a single-agent architecture with direct transfer tools. The information below is kept for historical reference.
 
-### 5.1 BaseRoutingAgent Implementation
+### 5.1 Why the Multi-Agent Approach Was Replaced
 
-Created `BaseRoutingAgent` base class in `src/agent.py` (lines 512-646) that extracts common routing patterns used across multiple sub-agents.
+The BaseRoutingAgent refactoring (Phase 2) and module split (Phase 3) created a well-organized multi-agent system, but testing revealed a critical UX issue:
 
-#### Extracted Methods
+**Double-Asking Bug:** When the Assistant handed off to a sub-agent (e.g., NewQuoteAgent), the sub-agent would ask for information the caller had already provided. This was because:
+1. Sub-agents had their own `on_enter()` methods with separate conversation flow
+2. Context was passed but not conversation history
+3. Sub-agents re-confirmed information to be safe
 
-| Method | Purpose | Previous Duplication |
-|--------|---------|---------------------|
-| `_initiate_transfer()` | Handles transfer logging and SIP REFER initiation | 5 agents |
-| `_handle_fallback()` | Manages fallback to hold queue when transfer fails | 5 agents |
-| `_take_data_sheet()` | Logs caller data collection for staff follow-up | 4 agents |
+### 5.2 Historical Architecture (Phases 2-4)
 
-#### Class Attributes for Customization
+The previous architecture included:
+- BaseRoutingAgent base class (5 agents inheriting)
+- 10 agent classes total
+- Handoff-based routing
 
-| Attribute | Default | Purpose |
-|-----------|---------|---------|
-| `transfer_log_prefix` | `"Transfer"` | Prefix for transfer log messages |
-| `fallback_log_context` | `"transfer"` | Context word for fallback messages |
-| `datasheet_log_prefix` | `"Taking data sheet"` | Prefix for data sheet logs |
-| `datasheet_message` | `"I'm sorry we couldn't..."` | Message to caller when taking data |
-| `include_notes_in_log` | `False` | Whether to include notes field in logs |
-| `is_warm_transfer` | `False` | Enables warm transfer context relay |
+**Files that existed (now removed):**
+- `src/base_agent.py` - BaseRoutingAgent
+- `src/agents/quote.py` - NewQuoteAgent
+- `src/agents/payment.py` - PaymentIDDecAgent
+- `src/agents/changes.py` - MakeChangeAgent
+- `src/agents/cancellation.py` - CancellationAgent
+- `src/agents/coverage.py` - CoverageRateAgent
+- `src/agents/something_else.py` - SomethingElseAgent
 
-### 5.2 Agents Refactored (5 total)
+### 5.3 Documentation Reference
 
-| Agent | Customizations | Notes |
-|-------|---------------|-------|
-| **NewQuoteAgent** | Default attributes | First agent refactored, served as template |
-| **MakeChangeAgent** | Custom log prefixes for "policy change" | Straightforward refactor |
-| **CancellationAgent** | Custom log prefixes, `include_notes_in_log=True` | Includes cancellation reason in logs |
-| **SomethingElseAgent** | `is_warm_transfer=True`, overrides `_initiate_transfer` | Supports warm transfers with context relay |
-| **CoverageRateAgent** | Custom log prefixes for "coverage/rate question" | Clean inheritance |
+See `docs/BASE_ROUTING_AGENT_DESIGN.md` for the historical design document (kept for reference)
 
-### 5.3 Agent NOT Refactored (by design)
+---
 
-**PaymentIDDecAgent** was intentionally excluded from refactoring per livekit-expert recommendation.
+## 6. Phase 5: Single-Agent Architecture (COMPLETED)
 
-**Reason:** Uses a different routing pattern:
-1. Routes to VA ring group first (Ann ext 7016, Sheree ext 7008)
-2. Falls back to alpha-split only if VA routing unavailable
+**Completed:** 2026-01-14
+**Result:** Double-asking bug eliminated, simplified codebase
 
-This pattern differs significantly from the standard alpha-split-first pattern used by other agents.
+### 6.1 Overview
 
-### 5.4 Code Reduction Metrics
+The multi-agent handoff architecture was replaced with a single-agent design where the Assistant handles all routing directly using transfer tools. This eliminates the double-asking bug and simplifies the conversation flow.
 
-| Metric | Value |
-|--------|-------|
-| Lines removed per agent | ~65 |
-| Total agents refactored | 5 |
-| **Total lines saved** | **~325** |
-| New base class lines | ~133 |
-| **Net reduction** | **~192 lines** |
-
-### 5.5 New Files Created
-
-| File | Purpose | Size |
-|------|---------|------|
-| `docs/BASE_ROUTING_AGENT_DESIGN.md` | Architecture design document | ~900 lines |
-| `docs/TEST_RESTRUCTURING_PLAN.md` | Test refactoring plan for Phase 3 | ~950 lines |
-| `src/instruction_templates.py` | Token-optimized instruction fragments | ~628 lines |
-| `tests/test_base_routing.py` | Dedicated test suite for BaseRoutingAgent | 41 test cases |
-
-### 5.6 Test Suite Updates
-
-| Test File | Tests | Status |
-|-----------|-------|--------|
-| `tests/test_base_routing.py` | 41 | New file, all passing |
-| `tests/test_agent.py` | 159 | All passing (refactored agents verified) |
-| `tests/test_staff_directory.py` | 62 | All passing |
-| `tests/test_business_hours.py` | 129 | All passing (skipped: 13) |
-| **Total** | **391** | **378 passing, 13 skipped** |
-
-### 5.7 BaseRoutingAgent Class Hierarchy
+### 6.2 New Architecture
 
 ```
 Agent (LiveKit base)
     |
-    +-- BaseRoutingAgent (new base class)
-            |
-            +-- NewQuoteAgent
-            +-- MakeChangeAgent
-            +-- CancellationAgent
-            +-- SomethingElseAgent
-            +-- CoverageRateAgent
+    +-- Assistant (Main agent - handles ALL routing)
+    |       |
+    |       +-- transfer_new_quote (tool)
+    |       +-- transfer_payment (tool)
+    |       +-- transfer_policy_change (tool)
+    |       +-- transfer_cancellation (tool)
+    |       +-- transfer_coverage_question (tool)
+    |       +-- transfer_something_else (tool)
     |
-    +-- PaymentIDDecAgent (separate pattern)
-    +-- ClaimsAgent
-    +-- AfterHoursAgent
-    +-- MortgageeCertificateAgent
+    +-- ClaimsAgent (handoff for claims-specific flow)
+    +-- MortgageeCertificateAgent (handoff for email/self-service)
+    +-- AfterHoursAgent (handoff for voicemail routing)
 ```
 
----
+### 6.3 Transfer Tools Added
 
-## 6. Phase 3: Module Split (COMPLETED)
+| Tool | Purpose | Routing Logic |
+|------|---------|---------------|
+| `transfer_new_quote` | New quote requests | Alpha-split to Sales Agents |
+| `transfer_payment` | Payments, ID cards, dec pages | VA ring group or Account Executives |
+| `transfer_policy_change` | Policy modifications | Alpha-split to Account Executives |
+| `transfer_cancellation` | Policy cancellations | Alpha-split to Account Executives |
+| `transfer_coverage_question` | Coverage/rate questions | Alpha-split to Account Executives |
+| `transfer_something_else` | Other inquiries | Alpha-split with warm transfer |
 
-**Completed:** 2026-01-14
-**Test Result:** All 391 tests still passing
+### 6.4 Agents Removed
 
-### 6.1 Overview
+| Agent | Reason | Replacement |
+|-------|--------|-------------|
+| NewQuoteAgent | Double-asking bug | `transfer_new_quote` tool |
+| PaymentIDDecAgent | Double-asking bug | `transfer_payment` tool |
+| MakeChangeAgent | Double-asking bug | `transfer_policy_change` tool |
+| CancellationAgent | Double-asking bug | `transfer_cancellation` tool |
+| CoverageRateAgent | Double-asking bug | `transfer_coverage_question` tool |
+| SomethingElseAgent | Double-asking bug | `transfer_something_else` tool |
+| BaseRoutingAgent | No longer needed | Logic in Assistant |
 
-The monolithic `src/agent.py` file (previously ~3,666 lines) has been split into a modular architecture. This addresses issue 2.4 from the initial review and makes the codebase significantly easier to maintain, navigate, and test.
+### 6.5 Agents Kept
 
-### 6.2 New Module Structure
+| Agent | Reason |
+|-------|--------|
+| Assistant | Main agent, now handles all routing |
+| ClaimsAgent | Complex claims flow with business hours detection |
+| MortgageeCertificateAgent | No-transfer flow (email/self-service) |
+| AfterHoursAgent | Voicemail-specific flow |
+
+### 6.6 Benefits Achieved
+
+| Metric | Before (Multi-Agent) | After (Single-Agent) |
+|--------|---------------------|----------------------|
+| Double-asking bug | Present | Eliminated |
+| Agent classes | 10 | 4 |
+| Handoffs for routing | 6+ per call type | 0-1 per call type |
+| Code complexity | High (inheritance) | Low (direct tools) |
+| Conversation flow | Fragmented | Unified |
+
+### 6.7 Current File Structure
 
 ```
 src/
-  __init__.py           # Package init (7 lines)
-  models.py             # CallerInfo, CallIntent, InsuranceType (238 lines)
-  utils.py              # mask_phone, mask_name, validate_phone (110 lines)
-  constants.py          # HOLD_MESSAGE, CARRIER_CLAIMS_NUMBERS (97 lines)
-  base_agent.py         # BaseRoutingAgent (161 lines)
-  main.py               # Server setup, entry point (212 lines)
-  agent.py              # Backwards compatibility wrapper (106 lines)
-  instruction_templates.py  # Token-optimized templates (628 lines)
-  business_hours.py     # Business hours utilities (524 lines)
-  staff_directory.py    # Staff data and routing (634 lines)
   agents/
-    __init__.py         # Exports all agents (40 lines)
-    assistant.py        # Main Assistant (740 lines)
-    quote.py            # NewQuoteAgent (193 lines)
-    payment.py          # PaymentIDDecAgent (194 lines)
-    changes.py          # MakeChangeAgent (215 lines)
-    cancellation.py     # CancellationAgent (224 lines)
-    claims.py           # ClaimsAgent (232 lines)
-    coverage.py         # CoverageRateAgent (227 lines)
-    something_else.py   # SomethingElseAgent (294 lines)
-    mortgagee.py        # MortgageeCertificateAgent (242 lines)
-    after_hours.py      # AfterHoursAgent (258 lines)
+    __init__.py         # Exports: Assistant, ClaimsAgent, MortgageeCertificateAgent, AfterHoursAgent
+    assistant.py        # Main Assistant with all transfer tools
+    claims.py           # ClaimsAgent
+    mortgagee.py        # MortgageeCertificateAgent
+    after_hours.py      # AfterHoursAgent
 ```
-
-### 6.3 Key Design Decisions
-
-| Decision | Rationale |
-|----------|-----------|
-| Backwards-compatible `agent.py` | Existing imports continue to work; minimizes migration risk |
-| Dedicated `models.py` | Type definitions (CallerInfo, enums) are shared across agents |
-| Separate `utils.py` | PII masking functions used by multiple modules |
-| `constants.py` for static data | HOLD_MESSAGE, carrier numbers centralized |
-| `agents/` subdirectory | Clear separation of agent classes from infrastructure |
-| Entry point in `main.py` | Server setup logic separate from agent definitions |
-
-### 6.4 Migration Benefits
-
-| Metric | Before (Phase 2) | After (Phase 3) | Improvement |
-|--------|------------------|-----------------|-------------|
-| Largest file | ~3,548 lines (agent.py) | ~740 lines (assistant.py) | 79% reduction |
-| Files containing agents | 1 | 10 | Better organization |
-| Average agent file size | N/A | ~230 lines | Manageable units |
-| Import clarity | Monolithic | Targeted imports | Faster IDE navigation |
-
-### 6.5 Backwards Compatibility
-
-The `src/agent.py` file now serves as a compatibility wrapper:
-- Re-exports all agents from `src/agents/`
-- Re-exports models, utilities, and constants
-- Existing `from src.agent import ...` statements continue to work
-- Entry point commands (`uv run python src/agent.py dev`) work via wrapper
-
-### 6.6 Test Impact
-
-All 391 tests continue to pass without modification. The test files import from the same locations, which now route through the compatibility wrapper.
 
 ---
 
@@ -591,24 +530,23 @@ uv run pytest tests/
 ## 8. Current Project State
 
 ### Strengths
-- Well-architected multi-agent voice AI system
+- **Simplified single-agent voice AI architecture** (Phase 5)
+- **Double-asking bug eliminated** - callers no longer asked same questions twice
 - Comprehensive alpha-split routing logic
 - Good security practices in main agent (PII masking, prompt injection protection)
 - Detailed staff directory with proper role separation
-- **Excellent test coverage (502 tests across unit/integration/compatibility)**
-- Strong documentation foundation (ARCHITECTURE.md, OPERATIONS.md, LATENCY_TUNING.md, BASE_ROUTING_AGENT_DESIGN.md)
+- Test coverage across unit/integration/compatibility files
+- Strong documentation foundation (ARCHITECTURE.md, OPERATIONS.md, LATENCY_TUNING.md)
 - Business hours awareness with timezone handling
 - After-hours voicemail flow implemented
-- **BaseRoutingAgent reduces code duplication by ~325 lines**
-- **Dedicated base routing test suite (41 tests)**
 - **Token-optimized instruction templates created**
-- **Modular architecture: 10 agent files, largest is 740 lines (Phase 3)**
+- **Only 4 agent classes (down from 10)** - easier to maintain
 - **Restructured test suite: unit/integration separation (Phase 4)**
 
 ### Areas Needing Improvement
 - ~~Code organization (monolithic files)~~ **COMPLETED in Phase 3**
-- ~~Code duplication (BaseRoutingAgent needed)~~ **COMPLETED in Phase 2**
-- Security guardrails in sub-agents
+- ~~Code duplication~~ **RESOLVED via architecture simplification in Phase 5**
+- ~~Double-asking bug~~ **FIXED in Phase 5**
 - ~~Token efficiency optimization~~ **Partially addressed with instruction_templates.py**
 - ~~Test file restructuring~~ **COMPLETED in Phase 4**
 - Some configuration verification needed (LLM model name)
@@ -617,8 +555,7 @@ uv run pytest tests/
 The system is **near production-ready** with the following prerequisites:
 1. Fix duplicate greeting issue
 2. Verify LLM model name
-3. Add security guardrails to sub-agents
-4. Confirm placeholder phone numbers
+3. Confirm placeholder phone numbers
 
 ---
 
@@ -639,11 +576,11 @@ Key sections in TODO.md:
 
 ## 10. Newly Identified Items
 
-The following issues were discovered during the initial review session. Items marked with strikethrough were completed in Phase 2 or Phase 3.
+The following issues were discovered during the initial review session. Items marked with strikethrough were completed in Phases 2-5.
 
 ### Code Quality
-1. ~~**Create BaseRoutingAgent class** - Extract common transfer/fallback/datasheet methods~~ **COMPLETED Phase 2**
-2. **Add security guardrails to all sub-agents** - Prompt injection protection
+1. ~~**Create BaseRoutingAgent class** - Extract common transfer/fallback/datasheet methods~~ **SUPERSEDED Phase 5** - Architecture simplified instead
+2. ~~**Add security guardrails to all sub-agents** - Prompt injection protection~~ **RESOLVED Phase 5** - Sub-agents removed, only Assistant needs guardrails
 3. **Fix datetime.now() timezone issue** in staff_directory.py line 376
 
 ### LiveKit/Voice
@@ -656,17 +593,18 @@ The following issues were discovered during the initial review session. Items ma
 8. ~~**Split test_agent.py**~~ **COMPLETED Phase 4** - 16+ test files in unit/integration directories
 9. ~~**Add pytest markers consistently**~~ **COMPLETED Phase 4** - unit, integration, security, smoke, after_hours
 10. **Mock external APIs** - For faster unit tests (partially done)
-11. ~~**Add BaseRoutingAgent test suite**~~ **COMPLETED Phase 2** - 41 tests in test_base_routing.py
+11. ~~**Add BaseRoutingAgent test suite**~~ **SUPERSEDED Phase 5** - BaseRoutingAgent removed
 
 ### Prompts
-12. ~~**Remove duplicate personality sections** - From sub-agent prompts~~ **COMPLETED Phase 2** - instruction_templates.py created
+12. ~~**Remove duplicate personality sections** - From sub-agent prompts~~ **RESOLVED Phase 5** - Sub-agents removed
 13. **Add few-shot examples** - For intent disambiguation
 14. **Implement POLICY_REVIEW_RENEWAL flow** - Currently half-implemented
 
 ### Architecture
 15. ~~**Split agent.py into modules** - Follow suggested structure in section 2.4~~ **COMPLETED Phase 3**
 16. **Add participant event handlers** - Disconnection, track changes
-17. **Add correlation IDs** - For call tracing through sub-agents
+17. ~~**Add correlation IDs** - For call tracing through sub-agents~~ **SIMPLIFIED Phase 5** - Single agent, less tracing needed
+18. ~~**Fix double-asking bug** - Callers asked same questions twice~~ **FIXED Phase 5** - Single-agent architecture
 
 ---
 
@@ -706,16 +644,16 @@ The following issues were discovered during the initial review session. Items ma
 
 Prioritized list of recommended actions:
 
-### Completed (Phase 2, Phase 3, and Phase 4)
+### Completed (Phases 2-5)
 
 | Task | Phase | Status | Notes |
 |------|-------|--------|-------|
-| Create BaseRoutingAgent class | 2 | DONE | 5 agents refactored, ~325 lines saved |
-| Add BaseRoutingAgent test suite | 2 | DONE | 41 tests in test_base_routing.py |
+| Create BaseRoutingAgent class | 2 | SUPERSEDED | Replaced by Phase 5 simplification |
+| Add BaseRoutingAgent test suite | 2 | SUPERSEDED | BaseRoutingAgent removed in Phase 5 |
 | Create instruction templates | 2 | DONE | src/instruction_templates.py created |
-| Document BaseRoutingAgent design | 2 | DONE | docs/BASE_ROUTING_AGENT_DESIGN.md |
+| Document BaseRoutingAgent design | 2 | DONE | docs/BASE_ROUTING_AGENT_DESIGN.md (historical) |
 | Plan test restructuring | 2 | DONE | docs/TEST_RESTRUCTURING_PLAN.md |
-| Split agent.py into modules | 3 | DONE | 10 agent files, largest 740 lines |
+| Split agent.py into modules | 3 | DONE | Now 4 agent files |
 | Create models.py | 3 | DONE | CallerInfo, CallIntent, InsuranceType |
 | Create utils.py | 3 | DONE | PII masking functions |
 | Create constants.py | 3 | DONE | HOLD_MESSAGE, CARRIER_CLAIMS_NUMBERS |
@@ -723,9 +661,12 @@ Prioritized list of recommended actions:
 | Backwards-compat agent.py wrapper | 3 | DONE | Existing imports still work |
 | Split test_agent.py | 4 | DONE | 16+ test files in unit/integration |
 | Add pytest markers | 4 | DONE | unit, integration, security, smoke, after_hours |
-| Create tests/unit/ directory | 4 | DONE | 76 fast unit tests |
-| Create tests/integration/ directory | 4 | DONE | 131 LLM integration tests |
+| Create tests/unit/ directory | 4 | DONE | Fast unit tests |
+| Create tests/integration/ directory | 4 | DONE | LLM integration tests |
 | Enhanced conftest.py | 4 | DONE | Shared fixtures and helpers |
+| **Simplify to single-agent architecture** | 5 | DONE | Double-asking bug fixed |
+| **Remove routing sub-agents** | 5 | DONE | 6 agents removed |
+| **Add transfer tools to Assistant** | 5 | DONE | 6 transfer tools added |
 
 ### Immediate (Before Next Deploy)
 
@@ -733,140 +674,119 @@ Prioritized list of recommended actions:
 |----------|------|--------|--------|
 | 1 | Fix duplicate greeting issue | 15 min | High |
 | 2 | Verify/fix LLM model name | 5 min | Critical |
-| 3 | Add security guardrails to sub-agents | 1 hr | High |
 
 ### Short-Term (This Week)
 
 | Priority | Task | Effort | Impact |
 |----------|------|--------|--------|
-| 4 | Fix datetime.now() timezone issue | 15 min | Medium |
-| 5 | Add shutdown callback | 30 min | Medium |
-| 6 | Enable skipped tests in test_business_hours.py | 30 min | Low |
-
-### Medium-Term (Phase 4: Test Restructuring - COMPLETED)
-
-| Priority | Task | Effort | Impact | Status |
-|----------|------|--------|--------|--------|
-| 7 | ~~Split agent.py into modules~~ | ~~4-6 hrs~~ | ~~High~~ | **DONE Phase 3** |
-| 8 | ~~Split test_agent.py into files~~ | ~~2-3 hrs~~ | ~~Medium~~ | **DONE Phase 4** |
-| 9 | ~~Add pytest markers consistently~~ | ~~1 hr~~ | ~~Medium~~ | **DONE Phase 4** |
-| 10 | Apply instruction_templates to sub-agents | 1-2 hrs | Medium | Pending |
+| 3 | Fix datetime.now() timezone issue | 15 min | Medium |
+| 4 | Add shutdown callback | 30 min | Medium |
+| 5 | Enable skipped tests in test_business_hours.py | 30 min | Low |
 
 ### Longer-Term (Next Sprint)
 
 | Priority | Task | Effort | Impact |
 |----------|------|--------|--------|
-| 11 | Mock external APIs in tests | 4-6 hrs | Medium |
-| 12 | Implement POLICY_REVIEW_RENEWAL | 2-3 hrs | Low |
-| 13 | Add few-shot examples to prompts | 2-3 hrs | Medium |
-| 14 | Add correlation IDs | 2-3 hrs | Medium |
+| 6 | Mock external APIs in tests | 4-6 hrs | Medium |
+| 7 | Implement POLICY_REVIEW_RENEWAL | 2-3 hrs | Low |
+| 8 | Add few-shot examples to prompts | 2-3 hrs | Medium |
 
 ---
 
 ## Appendix: File Metrics
 
-### Source Files (Phase 3 - Modular Structure)
+### Source Files (Phase 5 - Single-Agent Architecture)
 
 #### Core Modules
 
-| File | Lines | Purpose |
-|------|-------|---------|
-| src/models.py | 238 | CallerInfo dataclass, CallIntent/InsuranceType enums |
-| src/utils.py | 110 | PII masking: mask_phone, mask_name, validate_phone |
-| src/constants.py | 97 | HOLD_MESSAGE, CARRIER_CLAIMS_NUMBERS |
-| src/base_agent.py | 161 | BaseRoutingAgent with common routing logic |
-| src/main.py | 212 | Server setup, entrypoint, CLI commands |
-| src/agent.py | 106 | Backwards compatibility wrapper |
-| src/instruction_templates.py | 628 | Token-optimized instruction fragments |
-| src/business_hours.py | 524 | Business hours utilities |
-| src/staff_directory.py | 634 | Staff data and routing logic |
+| File | Purpose |
+|------|---------|
+| src/models.py | CallerInfo dataclass, CallIntent/InsuranceType enums |
+| src/utils.py | PII masking: mask_phone, mask_name, validate_phone |
+| src/constants.py | HOLD_MESSAGE, CARRIER_CLAIMS_NUMBERS |
+| src/main.py | Server setup, entrypoint, CLI commands |
+| src/agent.py | Backwards compatibility wrapper |
+| src/instruction_templates.py | Token-optimized instruction fragments |
+| src/business_hours.py | Business hours utilities |
+| src/staff_directory.py | Staff data and routing logic |
 
-#### Agent Modules (src/agents/)
+#### Agent Modules (src/agents/) - Phase 5
 
-| File | Lines | Agent Class |
-|------|-------|-------------|
-| agents/__init__.py | 40 | Exports all agents |
-| agents/assistant.py | 740 | Assistant (main front desk) |
-| agents/quote.py | 193 | NewQuoteAgent |
-| agents/payment.py | 194 | PaymentIDDecAgent |
-| agents/changes.py | 215 | MakeChangeAgent |
-| agents/cancellation.py | 224 | CancellationAgent |
-| agents/claims.py | 232 | ClaimsAgent |
-| agents/coverage.py | 227 | CoverageRateAgent |
-| agents/something_else.py | 294 | SomethingElseAgent |
-| agents/mortgagee.py | 242 | MortgageeCertificateAgent |
-| agents/after_hours.py | 258 | AfterHoursAgent |
+| File | Agent Class | Notes |
+|------|-------------|-------|
+| agents/__init__.py | Exports | Only 4 agents now |
+| agents/assistant.py | Assistant | Main agent with transfer tools |
+| agents/claims.py | ClaimsAgent | Claims-specific flow |
+| agents/mortgagee.py | MortgageeCertificateAgent | Email/self-service |
+| agents/after_hours.py | AfterHoursAgent | Voicemail routing |
+
+#### Removed Files (Phase 5)
+
+| File | Reason |
+|------|--------|
+| ~~src/base_agent.py~~ | No longer needed |
+| ~~agents/quote.py~~ | Replaced by transfer_new_quote tool |
+| ~~agents/payment.py~~ | Replaced by transfer_payment tool |
+| ~~agents/changes.py~~ | Replaced by transfer_policy_change tool |
+| ~~agents/cancellation.py~~ | Replaced by transfer_cancellation tool |
+| ~~agents/coverage.py~~ | Replaced by transfer_coverage_question tool |
+| ~~agents/something_else.py~~ | Replaced by transfer_something_else tool |
 
 #### Summary
 
-| Metric | Phase 2 | Phase 3 |
+| Metric | Phase 4 | Phase 5 |
 |--------|---------|---------|
-| Total source lines | ~4,826 | ~4,594 |
-| Largest file | 3,548 (agent.py) | 740 (assistant.py) |
-| Agent files | 1 | 10 |
-| Average agent file | N/A | ~230 lines |
+| Agent classes | 10 | 4 |
+| Transfer tools | 0 | 6 |
+| BaseRoutingAgent | Yes | Removed |
+| Double-asking bug | Present | Fixed |
 
-### Test Files (Phase 4 - Restructured)
+### Test Files
 
-#### New Unit Tests (tests/unit/)
+#### Unit Tests (tests/unit/)
 
-| File | Tests | Description |
-|------|-------|-------------|
-| test_caller_info.py | ~15 | CallerInfo validation |
-| test_phone_validation.py | ~20 | Phone masking and validation |
-| test_environment.py | ~10 | Environment validation |
-| test_carrier_claims.py | ~15 | Carrier claims lookup |
-| test_agent_instructions.py | ~16 | Instruction generation |
-| **Subtotal** | **76** | |
+| File | Description |
+|------|-------------|
+| test_caller_info.py | CallerInfo validation |
+| test_phone_validation.py | Phone masking and validation |
+| test_environment.py | Environment validation |
+| test_carrier_claims.py | Carrier claims lookup |
+| test_agent_instructions.py | Instruction generation |
 
-#### New Integration Tests (tests/integration/)
+#### Integration Tests (tests/integration/)
 
-| File | Tests | Description |
-|------|-------|-------------|
-| test_greeting.py | ~10 | Basic greeting tests |
-| test_security.py | ~15 | Security/prompt injection |
-| test_quote_flow.py | ~15 | NEW_QUOTE flow |
-| test_payment_flow.py | ~12 | MAKE_PAYMENT flow |
-| test_change_flow.py | ~12 | MAKE_CHANGE flow |
-| test_cancellation_flow.py | ~12 | CANCELLATION flow |
-| test_claims_flow.py | ~15 | CLAIMS flow |
-| test_coverage_rate.py | ~10 | COVERAGE_RATE flow |
-| test_something_else.py | ~10 | SOMETHING_ELSE flow |
-| test_mortgagee_cert.py | ~10 | MORTGAGEE/CERTIFICATES |
-| test_after_hours.py | ~10 | After-hours voicemail |
-| **Subtotal** | **131** | |
+| File | Description |
+|------|-------------|
+| test_greeting.py | Basic greeting tests |
+| test_security.py | Security/prompt injection |
+| test_quote_flow.py | NEW_QUOTE flow |
+| test_payment_flow.py | MAKE_PAYMENT flow |
+| test_change_flow.py | MAKE_CHANGE flow |
+| test_cancellation_flow.py | CANCELLATION flow |
+| test_claims_flow.py | CLAIMS flow |
+| test_coverage_rate.py | COVERAGE_RATE flow |
+| test_something_else.py | SOMETHING_ELSE flow |
+| test_mortgagee_cert.py | MORTGAGEE/CERTIFICATES |
+| test_after_hours.py | After-hours voicemail |
 
 #### Utility and Compatibility Tests
 
-| File | Tests | Description |
-|------|-------|-------------|
-| tests/test_utils.py | 63 | Utility function tests |
-| tests/test_staff_directory.py | 62 | Routing logic tests |
-| tests/test_business_hours.py | 129 | Business hours tests (13 skipped) |
-| tests/test_base_routing.py | 41 | BaseRoutingAgent tests |
-| tests/test_agent.py | - | Original (compatibility) |
+| File | Description |
+|------|-------------|
+| tests/test_utils.py | Utility function tests |
+| tests/test_staff_directory.py | Routing logic tests |
+| tests/test_business_hours.py | Business hours tests |
+| tests/test_agent.py | Original (compatibility) |
 
 ### Documentation Files
 
 | File | Purpose | Status |
 |------|---------|--------|
-| docs/BASE_ROUTING_AGENT_DESIGN.md | Architecture design document | IMPLEMENTED |
+| docs/BASE_ROUTING_AGENT_DESIGN.md | Historical architecture design | Superseded by Phase 5 |
 | docs/TEST_RESTRUCTURING_PLAN.md | Test restructuring plan | IMPLEMENTED (Phase 4) |
-
-### Test Summary
-
-| Category | Count |
-|----------|-------|
-| Unit tests (tests/unit/) | 76 |
-| Integration tests (tests/integration/) | 131 |
-| Utility tests (test_utils.py) | 63 |
-| Staff directory tests | 62 |
-| Business hours tests | 129 (13 skipped) |
-| Base routing tests | 41 |
-| **Total** | **502** |
 
 ---
 
 *Generated: 2026-01-13*
-*Last Updated: 2026-01-14 (Phase 4 Complete)*
+*Last Updated: 2026-01-14 (Phase 5 Complete - Single-Agent Architecture)*
 *Source: Multi-Agent Review Session (LiveKit Expert, Code Reviewer, Prompt Engineer)*

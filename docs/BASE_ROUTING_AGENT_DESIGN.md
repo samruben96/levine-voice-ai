@@ -1,19 +1,37 @@
 # BaseRoutingAgent Design Document
 
-> **Status: IMPLEMENTED** (2026-01-13, Updated 2026-01-14)
+> **Status: SUPERSEDED** (2026-01-14 - Phase 5)
 >
-> This design has been fully implemented in Phase 2 and refactored in Phase 3.
+> **IMPORTANT:** This design document is kept for historical reference only. The BaseRoutingAgent approach was **replaced by a single-agent architecture** in Phase 5.
 >
-> **Phase 3 Update:** The monolithic `src/agent.py` has been split into modules. BaseRoutingAgent now lives at `src/base_agent.py` (161 lines). All sub-agents have been moved to `src/agents/` directory.
+> ## Why This Was Superseded
 >
-> **Current Location:** `src/base_agent.py`
+> The multi-agent handoff system described in this document caused a **"double-asking" bug** where callers were asked the same questions twice after being handed off to a sub-agent. This happened because:
+> 1. Sub-agents had their own `on_enter()` methods with separate conversation flows
+> 2. Context (CallerInfo) was passed but conversation history was not
+> 3. Sub-agents re-confirmed information to be safe
 >
-> Five agents inherit from this base class and are now in separate files:
-> - `src/agents/quote.py` - NewQuoteAgent
-> - `src/agents/changes.py` - MakeChangeAgent
-> - `src/agents/cancellation.py` - CancellationAgent
-> - `src/agents/something_else.py` - SomethingElseAgent
-> - `src/agents/coverage.py` - CoverageRateAgent
+> ## Current Architecture (Phase 5)
+>
+> Instead of multiple routing agents, the **Assistant now handles all routing directly** using transfer tools:
+> - `transfer_new_quote` - replaces NewQuoteAgent
+> - `transfer_payment` - replaces PaymentIDDecAgent
+> - `transfer_policy_change` - replaces MakeChangeAgent
+> - `transfer_cancellation` - replaces CancellationAgent
+> - `transfer_coverage_question` - replaces CoverageRateAgent
+> - `transfer_something_else` - replaces SomethingElseAgent
+>
+> Only 4 agents remain: Assistant, ClaimsAgent, MortgageeCertificateAgent, AfterHoursAgent
+>
+> ---
+>
+> # Historical Documentation (Phases 2-4)
+>
+> The following was the original design that has been superseded:
+
+---
+
+## Historical: Original Design Summary
 
 ## Executive Summary
 
@@ -912,7 +930,14 @@ The BaseRoutingAgent implementation can be found at:
 
 ---
 
-**Document Version:** 1.2 (Updated with Phase 3 module locations)
+**Document Version:** 1.3 (Marked as SUPERSEDED - Phase 5 single-agent architecture)
 **Created:** 2026-01-13
 **Updated:** 2026-01-14
 **Author:** Claude Opus 4.5 (via livekit-expert agent)
+
+---
+
+## See Also
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Current single-agent architecture documentation
+- [PROJECT_STATUS.md](../PROJECT_STATUS.md) - Phase 5 completion details
