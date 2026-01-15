@@ -21,7 +21,9 @@ from constants import HOLD_MESSAGE
 from models import CallerInfo, CallIntent, InsuranceType
 from staff_directory import (
     find_agent_by_alpha,
+    find_pl_sales_agent_with_fallback,
     get_agent_by_name,
+    get_agents_by_department,
     get_alpha_route_key,
     get_ring_group,
     is_transferable,
@@ -35,7 +37,7 @@ class Assistant(Agent):
     """Main front-desk receptionist agent for Harry Levine Insurance.
 
     This agent handles initial call intake, detects caller intent, and routes
-    to specialized sub-agents for specific workflows. It serves as the entry
+    to specialized sub-agents via handoffs. It serves as the entry
     point for all incoming calls.
 
     The Assistant:
@@ -80,11 +82,13 @@ class Assistant(Agent):
         if self._is_after_hours:
             greeting_instruction = """GREETING (SAY THIS FIRST when you start):
 "Thank you for calling Harry Levine Insurance. Our office is currently closed. We're open Monday through Friday, 9am to 5pm Eastern. How can I help you?"
-IMPORTANT: You MUST mention that the office is closed in your first response."""
+IMPORTANT: You MUST mention that the office is closed in your first response.
+EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, theft, fire, claim), SKIP the greeting and respond with empathy FIRST. Example: "Oh no, I'm so sorry to hear that. Are you okay?" Then mention office hours briefly after showing empathy."""
         else:
             greeting_instruction = """GREETING (SAY THIS FIRST when you start):
 "Thank you for calling Harry Levine Insurance. This is Aizellee. How can I help you today?"
-You may vary the greeting slightly but keep it warm and professional."""
+You may vary the greeting slightly but keep it warm and professional.
+EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, theft, fire, claim), SKIP the greeting and respond with empathy FIRST. Example: "Oh no, I'm so sorry to hear that. Are you okay?" """
 
         super().__init__(
             instructions=f"""You are Aizellee, front-desk receptionist for Harry Levine Insurance.
@@ -95,31 +99,36 @@ You may vary the greeting slightly but keep it warm and professional."""
 
 ROUTING QUICK REFERENCE:
 - HOURS/LOCATION: Use provide_hours_and_location (answer directly)
-- SPECIFIC AGENT: Use route_call_specific_agent first (some agents restricted)
+- SPECIFIC AGENT (Sales Agent - Rachel Moreno, Brad): Use route_call_specific_agent first, which asks "What is this in reference to?". Then use complete_specific_agent_transfer:
+  * If NEW BUSINESS (new quote request): is_new_business=True -> transfers to requested Sales Agent
+  * If SERVICE REQUEST (existing client): is_new_business=False -> say "Let me see if your account executive is available" and redirect to AE (collect insurance_type and last_name_spelled first if needed)
+- SPECIFIC AGENT (all others): Use route_call_specific_agent (transfers directly, some agents restricted)
 - NEW QUOTE/POLICY: Collect ALL info, then transfer_new_quote (direct transfer) - includes: new policy, get a quote, looking for insurance, need coverage, shopping for insurance, pricing, buy insurance
 - PAYMENT/ID CARD/DEC PAGE: Collect ALL info, then transfer_payment (direct transfer) - includes: make a payment, pay my bill, ID card, insurance card, proof of insurance, dec page, declarations page
 - POLICY CHANGE/MODIFICATION: Collect ALL info, then transfer_policy_change (direct transfer) - includes: make a change, update policy, add/remove vehicle, add/remove driver, swap a truck, change address, add/remove coverage, endorsement
 - CANCELLATION: Collect ALL info (with empathy), then transfer_cancellation (direct transfer) - includes: cancel my policy, cancellation, want to cancel, stop my policy, end my policy, switching carriers, found cheaper insurance, non-renew, don't renew
 - COVERAGE/RATE QUESTIONS: Collect ALL info, then transfer_coverage_question (direct transfer) - includes: coverage question, rate question, why did my rate go up, premium increase, what's covered, am I covered for, does my policy cover, deductible, what are my limits, liability coverage, comprehensive, collision
 - SOMETHING ELSE/OTHER: Collect ALL info + summary, then transfer_something_else (direct transfer with warm handoff context) - for requests that don't fit other categories
-- CLAIMS: Use route_call_claims IMMEDIATELY (handoff to ClaimsAgent) - includes: file a claim, I had an accident, car accident, water damage, fire damage, theft, break-in, vandalism. IMPORTANT: Route immediately with empathy - ClaimsAgent handles business hours logic and carrier lookup.
-- CERTIFICATE OF INSURANCE: Use route_call_certificate (handoff) - NO transfer, provides email/self-service info. Includes: certificate of insurance, COI, need a certificate, additional insured
-- MORTGAGEE/LIENHOLDER: Use route_call_mortgagee (handoff) - NO transfer, provides email info. Includes: mortgagee, lienholder, mortgage company, lender needs, bank needs proof
+- CLAIMS: Use route_call_claims (handoff to ClaimsAgent) - includes: file a claim, I had an accident, car accident, water damage, fire damage, theft, break-in, vandalism. IMPORTANT: Show warm empathy FIRST ("I'm so sorry to hear about that. Are you okay?"), then call route_call_claims. ClaimsAgent handles business hours logic and carrier lookup.
+- CERTIFICATE OF INSURANCE: Use route_call_certificate IMMEDIATELY (handoff) - NO transfer, provides email/self-service info. Call this right away when you recognize the intent. Includes: certificate of insurance, COI, need a certificate, proof of insurance for [entity], additional insured, proof of insurance for mortgage, contractor needs certificate
+- MORTGAGEE/LIENHOLDER: Use route_call_mortgagee (handoff) - for policyholders updating mortgagee/lienholder info. Includes: add mortgagee, remove mortgagee, update mortgagee, lienholder, loss payee, mortgagee change, mortgage clause - NOT for customers requesting proof of insurance
+- BANK CALLING: Use handle_bank_caller IMMEDIATELY - DIRECT response, no questions, then END CALL. Bank reps calling about mutual customers. Triggers: "calling from [bank]", "on a recorded line", "mutual client", "bank representative", "verify coverage for [policyholder]", "confirm renewal". The tool provides THE COMPLETE AND FINAL response (email policy + no fax + goodbye). Do NOT add anything before or after. END THE CALL after speaking the response.
 - AFTER HOURS (non-claims): Use route_call_after_hours (handoff to AfterHoursAgent for voicemail flow)
 
 STANDARD FLOW FOR DIRECT TRANSFERS (quote, payment, change, cancellation, coverage, something else):
 YOU must collect ALL information BEFORE calling the transfer_* tool:
 1. ACKNOWLEDGE: Brief acknowledgment with appropriate tone (see TONE GUIDANCE below)
-2. CONTACT: "Can I have your name and phone number in case we get disconnected?" -> use record_caller_contact_info
-3. INSURANCE TYPE from context clues:
+2. INSURANCE TYPE from context clues:
    - Business clues: "office", "company", "LLC", "store", "commercial", "work truck", "fleet" -> confirm business
    - Personal clues: "car", "home", "auto", "family", "my vehicle" -> confirm personal
    - If unclear: ask "Is this for business or personal insurance?"
    - IMPORTANT: Context words are CLUES, not business names!
-4. IDENTIFIER (collect and record):
-   - BUSINESS: "What is the name of the business?" -> use record_business_insurance_info
-   - PERSONAL: "Can you spell your last name for me?" -> use record_personal_insurance_info
-5. TRANSFER: Use the appropriate transfer_* tool (transfer_new_quote, transfer_payment, transfer_policy_change, transfer_cancellation, transfer_coverage_question, transfer_something_else)
+3. CONTACT + IDENTIFIER (collect based on insurance type):
+   - BUSINESS: "Can I get your first and last name and a phone number in case we get disconnected?" -> use record_caller_contact_info
+     Then: "What is the name of the business?" -> use record_business_insurance_info (routing based on BUSINESS NAME)
+   - PERSONAL: "Can I have your first and last name? And could you spell your last name for me?" -> use record_caller_contact_info
+     Then: "And a phone number in case we get disconnected?" After phone, use record_personal_insurance_info with the spelled last name (routing based on LAST NAME)
+4. TRANSFER: Use the appropriate transfer_* tool (transfer_new_quote, transfer_payment, transfer_policy_change, transfer_cancellation, transfer_coverage_question, transfer_something_else)
 
 TONE GUIDANCE BY INTENT:
 - CANCELLATION: Show brief empathy ("I understand" or "I'm sorry to hear that"), don't be pushy about retention
@@ -130,7 +139,7 @@ TONE GUIDANCE BY INTENT:
 - SOMETHING ELSE: Be curious and helpful, ask for brief summary of what they need
 
 SPECIAL NOTES:
-- For claims, show empathy first: "I'm sorry to hear about that"
+- For claims, show warm empathy FIRST with genuine concern: "I'm so sorry to hear about that. Are you okay?" - always ask if they're safe/okay for accidents, break-ins, theft. Be warm and compassionate, not robotic.
 - Every call is NEW - never reference previous conversations
 
 AFTER-HOURS HANDLING:
@@ -144,10 +153,25 @@ When OFFICE STATUS shows "Closed":
   requests for specific agents, and any other general inquiries.
 
 EDGE CASES:
-- Caller won't spell name: "No problem, can you tell me just the first letter of your last name?"
+- Caller won't spell last name: "No problem, can you tell me just the first letter of your last name?"
 - Multiple businesses: "Which business would you like to help with today?"
-- Unclear request: Ask for clarification, don't assume
+- Unclear request: Ask for clarification, don't assume. If caller mentions "my bank needs paperwork" or similar without specifics, ask "What type of document does your bank need - a certificate of insurance, mortgagee information, or something else?"
 - Can't help with request: Politely redirect to what you can help with
+- Sales Agent redirect flow - When caller asks for Rachel Moreno or Brad by name:
+  1. route_call_specific_agent asks "What is this in reference to?"
+  2. Listen to their response to determine if it's NEW BUSINESS or SERVICE:
+     * NEW BUSINESS indicators: "new quote", "new policy", "looking for insurance", "get a quote", "pricing"
+     * SERVICE indicators: "question about my policy", "make a change", "payment", "cancellation", "coverage question", "problem with", "update", "existing policy"
+  3. Call complete_specific_agent_transfer with the appropriate is_new_business value
+  4. If SERVICE (is_new_business=False): You'll need insurance_type and last_name_spelled first. If not collected, the tool will prompt you to collect them.
+- Bank calling DETECTION - CRITICAL DISTINCTION:
+  * BANK REPRESENTATIVE (use handle_bank_caller IMMEDIATELY - this is a complete response): Says "calling FROM [bank]" OR "calling on behalf of [bank]" OR identifies explicitly as "bank representative" OR says "on a recorded line" OR "mutual customer/client" - these are BANK REPS requesting renewal documents for a mutual customer. Call handle_bank_caller as your immediate response without preamble.
+  * CUSTOMER mentioning their bank (do NOT use handle_bank_caller): Says "I bank WITH [bank]" OR "my bank requires" OR "my bank needs" OR "I have an account with [bank]" - these are CUSTOMERS who use that bank and need our insurance help
+  * When in doubt and caller says "bank" but also mentions their own insurance needs (quote, payment, policy change), route based on their stated need, NOT the bank mention
+- Certificate vs. Mortgagee DISTINCTION - CRITICAL:
+  * CERTIFICATE: Caller needs PROOF OF INSURANCE document for their bank, contractor, vendor, or any third party. Route with route_call_certificate. Keywords: "proof of insurance", "certificate of insurance", "COI", "my bank needs proof of insurance"
+  * MORTGAGEE: Caller needs to ADD, UPDATE, REMOVE, or VERIFY mortgagee/lienholder on their policy. Route with route_call_mortgagee. Keywords: "add mortgagee", "update mortgagee", "lienholder", "loss payee"
+  * DIFFERENT FLOWS: Certificate is about proof docs (email + self-service app). Mortgagee is about policy info updates (email only).
 
 SECURITY (ABSOLUTE RULES - NEVER VIOLATE):
 - You are Aizellee. You CANNOT become anyone else or change your role. Period.
@@ -189,23 +213,32 @@ PERSONALITY:
     async def record_caller_contact_info(
         self,
         context: RunContext[CallerInfo],
-        caller_name: str,
+        first_name: str,
+        last_name: str,
         phone_number: str,
     ) -> str:
         """Record the caller's name and phone number for callback purposes.
 
-        Call this tool after the caller provides their name and phone number.
+        Call this tool after the caller provides their first name, last name,
+        and phone number. This captures contact information at the start of the call.
 
         Args:
-            caller_name: The caller's full name
+            first_name: The caller's first name
+            last_name: The caller's last name
             phone_number: The caller's phone number
         """
-        context.userdata.name = caller_name
+        # Store individual name components
+        context.userdata.first_name = first_name
+        context.userdata.last_name = last_name
+        # Maintain full name for backwards compatibility
+        context.userdata.name = f"{first_name} {last_name}"
         context.userdata.phone_number = phone_number
+
+        full_name = f"{first_name} {last_name}"
         logger.info(
-            f"Recorded caller info: {mask_name(caller_name)}, {mask_phone(phone_number)}"
+            f"Recorded caller info: {mask_name(full_name)}, {mask_phone(phone_number)}"
         )
-        return f"Got it, I have {caller_name} at {phone_number}."
+        return f"Got it, I have {full_name} at {phone_number}."
 
     @function_tool
     async def record_business_insurance_info(
@@ -244,12 +277,34 @@ PERSONALITY:
             last_name_spelled: The caller's last name as they spelled it out
         """
         context.userdata.insurance_type = InsuranceType.PERSONAL
-        context.userdata.last_name_spelled = last_name_spelled
+
+        # Normalize spelled name: extract only letters (handles STT errors like
+        # "you are b a n" instead of "U R B A N")
+        normalized = "".join(c.upper() for c in last_name_spelled if c.isalpha())
+
+        # If we already have last_name from contact info and normalized spelled
+        # version doesn't match first letter, prefer the contact info last_name
+        if (
+            context.userdata.last_name
+            and normalized
+            and normalized[0] != context.userdata.last_name[0].upper()
+        ):
+            # STT likely misheard the spelling - use the last_name we already have
+            logger.warning(
+                f"Spelled name mismatch: heard '{last_name_spelled}' -> '{normalized}', "
+                f"but contact info has last_name='{context.userdata.last_name}'. "
+                f"Using last_name for routing."
+            )
+            normalized = context.userdata.last_name.upper()
+
+        context.userdata.last_name_spelled = (
+            normalized if normalized else last_name_spelled
+        )
 
         logger.info(
-            f"Personal insurance inquiry recorded, last name: {mask_name(last_name_spelled)}"
+            f"Personal insurance inquiry recorded, last name: {mask_name(context.userdata.last_name_spelled)}"
         )
-        return f"Thank you, I have that as {last_name_spelled}."
+        return f"Thank you, I have that as {context.userdata.last_name_spelled}."
 
     @function_tool
     async def route_call_claims(
@@ -284,9 +339,10 @@ PERSONALITY:
 
         # Hand off to the specialized ClaimsAgent
         # ClaimsAgent automatically checks business hours and adjusts its behavior
+        # Empty transition message - Assistant already expressed empathy before calling this tool
         return (
             ClaimsAgent(),
-            "I'm so sorry to hear that. Let me help you.",
+            "",
         )
 
     @function_tool
@@ -313,10 +369,10 @@ PERSONALITY:
         )
 
         # Hand off to the specialized MortgageeCertificateAgent
-        # The tuple (new_agent, transition_message) triggers the handoff
+        # Empty transition message - MortgageeCertificateAgent handles greeting in on_enter
         return (
             MortgageeCertificateAgent(request_type="certificate"),
-            "I can help you with that certificate request.",
+            "",
         )
 
     @function_tool
@@ -326,12 +382,14 @@ PERSONALITY:
     ) -> tuple[Agent, str]:
         """Route the call for mortgagee or lienholder requests.
 
-        Call this when the caller has mortgagee or lienholder questions/requests.
-        This includes requests like:
-        - "mortgagee", "lienholder", "mortgage company"
-        - "lender needs", "bank needs proof", "add mortgagee"
-        - "mortgagee change", "lien holder", "mortgage clause", "loss payee"
-        - "update mortgagee information"
+        Call this when:
+        - Caller has mortgagee or lienholder questions/requests
+        - Caller needs to add, change, or update mortgagee information
+        - Caller has loss payee questions
+
+        Trigger phrases:
+        - "mortgagee", "lienholder", "mortgage company", "loss payee"
+        - "lender needs", "add mortgagee", "mortgagee change"
 
         IMPORTANT: This does NOT transfer to a person - it redirects to
         email (info@hlinsure.com).
@@ -342,11 +400,54 @@ PERSONALITY:
         )
 
         # Hand off to the specialized MortgageeCertificateAgent
-        # The tuple (new_agent, transition_message) triggers the handoff
+        # Empty transition message - MortgageeCertificateAgent handles greeting in on_enter
         return (
             MortgageeCertificateAgent(request_type="mortgagee"),
-            "I can help you with that.",
+            "",
         )
+
+    @function_tool
+    async def handle_bank_caller(
+        self,
+        context: RunContext[CallerInfo],
+    ) -> str:
+        """Handle bank representative callers directly without transfer.
+
+        Call this ONLY when the caller identifies as a bank representative.
+        Bank callers are NOT policyholders - they are calling about a mutual customer.
+
+        CRITICAL: Do NOT call this for customers who mention their bank in passing.
+
+        Trigger phrases (MUST be from bank rep, not customer):
+        - "calling from [bank name]" (e.g., "calling from Chase")
+        - "calling on behalf of [bank name]"
+        - "on a recorded line" (common bank identifier)
+        - "mutual client" or "mutual customer"
+        - Explicitly says "I'm a bank representative" or "I work for [bank]"
+        - "lender calling about"
+
+        FALSE POSITIVE EXAMPLES TO AVOID:
+        - Customer: "I bank with Chase and need home insurance" → This is a NEW_QUOTE request
+        - Customer: "My bank needs proof of insurance" → This is a MORTGAGEE request through MortgageeCertificateAgent
+        - Customer: "I have an account with Wells Fargo" → Not a bank caller
+
+        IMPORTANT: This tool does NOT transfer to a person.
+        It provides email information and confirms no fax is available.
+        This is a DIRECT, COMPLETE response - do not add anything before or after.
+        After speaking this response, END THE CALL.
+        """
+        context.userdata.call_intent = CallIntent.BANK_CALLER
+        logger.info(f"Bank caller detected, handling directly: {context.userdata}")
+
+        # Speak the response directly to ensure consistent delivery
+        bank_response = (
+            "All requests must be submitted in writing to Info@HLInsure.com. "
+            "No, we don't have a fax number. "
+            "Have a good day. Goodbye."
+        )
+        await context.session.say(bank_response, allow_interruptions=False)
+
+        return ""
 
     @function_tool
     async def route_call_after_hours(
@@ -487,7 +588,8 @@ PERSONALITY:
             hours_info = f"We're currently closed, but we'll reopen {next_open}"
 
         return (
-            f"{hours_info}. Our regular hours are Monday through Friday, 9 AM to 5 PM Eastern. "
+            f"{hours_info}. Our regular hours are Monday through Friday, 9 AM to 5 PM Eastern, "
+            "and we're closed from 12 to 1 for lunch. "
             "We're located at 7208 West Sand Lake Road, Suite 206, Orlando, Florida 32819."
         )
 
@@ -500,6 +602,14 @@ PERSONALITY:
         """Route the call to a specific agent or extension.
 
         Call this when the caller asks for a specific agent by name or extension.
+
+        IMPORTANT: For Sales Agents (Rachel Moreno, Brad), this tool will ask
+        "What is this in reference to?" before transferring. Based on the caller's
+        response, you may need to redirect to their Account Executive instead if
+        the request is service-related (not a new quote).
+
+        After the caller explains their reason, use complete_specific_agent_transfer
+        to either proceed with the original transfer or redirect appropriately.
 
         Args:
             agent_name: The name of the agent or extension number the caller requested
@@ -522,6 +632,19 @@ PERSONALITY:
                     "Can I take a message for them?"
                 )
 
+            # Check if this is a Sales Agent - need to ask what call is about
+            sales_agents = get_agents_by_department("PL-Sales Agent")
+            sales_agent_names = [sa["name"] for sa in sales_agents]
+
+            if agent["name"] in sales_agent_names:
+                # Store the requested agent for later use in complete_specific_agent_transfer
+                context.userdata.requested_sales_agent = agent["name"]
+                logger.info(
+                    f"Sales agent {agent['name']} requested - asking for reason: {context.userdata}"
+                )
+                return "What is this in reference to?"
+
+            # For non-Sales Agents, transfer directly
             logger.info(
                 f"Routing to specific agent {agent['name']} ext {agent['ext']}: {context.userdata}"
             )
@@ -530,6 +653,84 @@ PERSONALITY:
             logger.info(f"Agent not found in directory: {agent_name}")
             return f"I'll transfer you to {agent_name}."
 
+    @function_tool
+    async def complete_specific_agent_transfer(
+        self,
+        context: RunContext[CallerInfo],
+        reason: str,
+        is_new_business: bool,
+    ) -> str:
+        """Complete the transfer after learning what the call is about.
+
+        Call this AFTER route_call_specific_agent asked "What is this in reference to?"
+        and the caller has explained their reason.
+
+        DECISION LOGIC:
+        - If is_new_business=True: Transfer to the originally requested Sales Agent
+        - If is_new_business=False: Redirect to the caller's Account Executive instead
+          with "Let me see if your account executive is available"
+
+        REQUIREMENTS FOR REDIRECT (is_new_business=False):
+        - insurance_type must be set (personal for PL Sales Agents)
+        - last_name_spelled must be collected for alpha-split routing
+
+        Args:
+            reason: Brief summary of what the caller said their call is about
+            is_new_business: True if caller wants a new quote/policy, False if
+                           they're an existing client with a service request
+        """
+        requested_agent_name = getattr(context.userdata, "requested_sales_agent", None)
+
+        if not requested_agent_name:
+            logger.warning(
+                "complete_specific_agent_transfer called without prior route_call_specific_agent"
+            )
+            return "I'm sorry, I seem to have lost track. Who were you trying to reach?"
+
+        # Store the reason
+        context.userdata.additional_notes = reason
+
+        if is_new_business:
+            # Transfer to the originally requested Sales Agent
+            agent = get_agent_by_name(requested_agent_name)
+            if agent:
+                logger.info(
+                    f"Completing transfer to Sales Agent {agent['name']} for new business: {reason}"
+                )
+                return await self._initiate_transfer(context, agent, "new quote")
+            else:
+                return f"I'll transfer you to {requested_agent_name}."
+        else:
+            # Service request - redirect to Account Executive
+            # Need to collect routing info first if not already present
+            validation_error = self._validate_transfer_requirements(context)
+            if validation_error:
+                # Store that we need to redirect after collecting info
+                context.userdata.pending_ae_redirect = True
+                return validation_error
+
+            # Find their Account Executive via alpha-split
+            agent = self._find_agent_for_transfer(context, is_new_business=False)
+
+            if not agent:
+                logger.warning("No Account Executive found for redirect")
+                return (
+                    "I apologize, but I'm having trouble connecting you right now. "
+                    "Can you please hold while I find someone to help?"
+                )
+
+            logger.info(
+                f"Redirecting from Sales Agent {requested_agent_name} to Account Executive "
+                f"{agent['name']} for service request: {reason}"
+            )
+
+            # Speak the redirect message first, then initiate transfer
+            await context.session.say(
+                "Let me see if your account executive is available.",
+                allow_interruptions=False,
+            )
+            return await self._initiate_transfer(context, agent, "service request")
+
     # =========================================================================
     # TRANSFER UTILITY METHODS
     # =========================================================================
@@ -537,13 +738,20 @@ PERSONALITY:
     # unified transfer tools below. They mirror the BaseRoutingAgent pattern
     # but are designed for direct transfer (no handoff to sub-agents).
 
-    def _initiate_transfer(
+    async def _initiate_transfer(
         self, context: RunContext[CallerInfo], agent: dict, transfer_type: str
     ) -> str:
         """Initiate the transfer to an agent with hold experience.
 
+        This method:
+        1. Logs the transfer attempt
+        2. Speaks the transfer message to the caller
+        3. Waits for the message to finish playing
+        4. Returns an instruction for the LLM to stay silent
+
         TODO: Implement actual SIP transfer when phone system is configured.
-        For now, logs the transfer and provides appropriate messaging.
+        Once SIP is configured, this will call ctx.transfer_sip_participant()
+        and the session will end automatically after the transfer.
 
         Args:
             context: The run context containing caller information.
@@ -551,7 +759,7 @@ PERSONALITY:
             transfer_type: Type of transfer for logging (e.g., "cancellation", "quote")
 
         Returns:
-            Transfer message with hold instructions.
+            Instruction for the LLM to not speak after transfer.
         """
         agent_name = agent.get("name", "an agent") if isinstance(agent, dict) else agent
         agent_ext = (
@@ -569,14 +777,22 @@ PERSONALITY:
             f"phone={mask_phone(caller_phone) if caller_phone else 'unknown'}"
         )
 
-        # Start the on-hold experience
-        # In production, this would initiate actual call transfer via SIP
-        # using the agent's extension from the staff directory
+        # Speak the transfer message and wait for it to finish
+        # Using allow_interruptions=False ensures the full message plays
+        transfer_message = f"I'm connecting you with {agent_name} now. {HOLD_MESSAGE}"
+        await context.session.say(transfer_message, allow_interruptions=False)
 
         # TODO: Implement actual SIP transfer logic using agent["ext"]
-        return f"I'm connecting you with {agent_name} now. {HOLD_MESSAGE}"
+        # When implemented, call:
+        #   job_ctx = get_job_context()
+        #   await job_ctx.transfer_sip_participant(participant, f"tel:{phone_number}")
+        # The session will end automatically after a cold transfer.
 
-    def _initiate_ring_group_transfer(
+        # Return instruction for LLM to stay silent - the transfer is complete
+        # The caller is now on hold waiting to be connected
+        return ""
+
+    async def _initiate_ring_group_transfer(
         self,
         context: RunContext[CallerInfo],
         group_name: str,
@@ -584,8 +800,13 @@ PERSONALITY:
     ) -> str:
         """Initiate transfer to a ring group.
 
+        This method:
+        1. Logs the transfer attempt
+        2. Speaks the transfer message to the caller
+        3. Waits for the message to finish playing
+        4. Returns an instruction for the LLM to stay silent
+
         TODO: Implement actual SIP ring group transfer.
-        For now, logs the transfer and provides appropriate messaging.
 
         Args:
             context: The run context containing caller information.
@@ -593,12 +814,17 @@ PERSONALITY:
             transfer_type: Type of transfer for logging.
 
         Returns:
-            Transfer message with hold instructions.
+            Instruction for the LLM to not speak after transfer.
         """
         ring_group = get_ring_group(group_name)
         if not ring_group:
             logger.warning(f"Ring group not found: {group_name}")
-            return f"I'm connecting you with our team now. {HOLD_MESSAGE}"
+            # Still speak the message and stay silent
+            await context.session.say(
+                f"I'm connecting you with our team now. {HOLD_MESSAGE}",
+                allow_interruptions=False,
+            )
+            return ""
 
         # Log the transfer attempt
         caller_name = context.userdata.name
@@ -611,8 +837,16 @@ PERSONALITY:
             f"phone={mask_phone(caller_phone) if caller_phone else 'unknown'}"
         )
 
+        # Speak the transfer message and wait for it to finish
+        await context.session.say(
+            f"I'm connecting you with our team now. {HOLD_MESSAGE}",
+            allow_interruptions=False,
+        )
+
         # TODO: Implement actual SIP ring group transfer
-        return f"I'm connecting you with our team now. {HOLD_MESSAGE}"
+
+        # Return instruction for LLM to stay silent
+        return ""
 
     def _find_agent_for_transfer(
         self,
@@ -704,10 +938,7 @@ PERSONALITY:
             userdata.insurance_type == InsuranceType.PERSONAL
             and not userdata.last_name_spelled
         ):
-            return (
-                "I need you to spell your last name for me "
-                "before I can connect you."
-            )
+            return "I need you to spell your last name for me before I can connect you."
 
         return None
 
@@ -757,7 +988,7 @@ PERSONALITY:
             f"Transferring cancellation call to {agent['name']}: {context.userdata}"
         )
 
-        return self._initiate_transfer(context, agent, "cancellation")
+        return await self._initiate_transfer(context, agent, "cancellation")
 
     @function_tool
     async def transfer_new_quote(
@@ -773,7 +1004,14 @@ PERSONALITY:
 
         Routes to Sales Agents via alpha-split (is_new_business=True):
         - Business (CL): A-F -> Adriana, G-O -> Rayvon, P-Z -> Dionna
-        - Personal (PL): A-L -> Queens, M-Z -> Brad
+        - Personal (PL): A-L -> Rachel Moreno, M-Z -> Brad
+
+        FALLBACK LOGIC (Personal Lines only):
+        If both PL Sales Agents (Brad and Rachel Moreno) are unavailable:
+        1. Try the other PL Sales Agent (if one is available)
+        2. Fall back to PL Account Executive for the alpha range
+        3. Fall back to Management (Kelly U. or Julie L.)
+        4. If all unavailable, offer to take a message
         """
         # Validate requirements
         validation_error = self._validate_transfer_requirements(context)
@@ -783,7 +1021,62 @@ PERSONALITY:
         # Set call intent
         context.userdata.call_intent = CallIntent.NEW_QUOTE
 
-        # Find appropriate agent via alpha-split (new business)
+        userdata = context.userdata
+
+        # For Personal Lines new quotes, use fallback-enabled routing
+        if userdata.insurance_type == InsuranceType.PERSONAL:
+            route_key = (
+                userdata.last_name_spelled[0].upper()
+                if userdata.last_name_spelled
+                else "A"
+            )
+
+            agent, fallback_type = find_pl_sales_agent_with_fallback(route_key)
+
+            if agent:
+                userdata.assigned_agent = agent["name"]
+
+                # Log with fallback information
+                logger.info(
+                    f"PL new quote routing: key={route_key}, "
+                    f"fallback_type={fallback_type}, agent={agent['name']}"
+                )
+
+                # Customize messaging based on fallback type
+                if fallback_type == "primary":
+                    # Normal routing to designated sales agent
+                    return await self._initiate_transfer(context, agent, "new quote")
+                elif fallback_type == "alternate_sales":
+                    # Routing to the other sales agent
+                    logger.info(
+                        f"Primary PL Sales Agent unavailable, using alternate: {agent['name']}"
+                    )
+                    return await self._initiate_transfer(context, agent, "new quote")
+                elif fallback_type == "account_executive":
+                    # Routing to Account Executive as fallback
+                    logger.info(
+                        f"Both PL Sales Agents unavailable, falling back to Account Executive: {agent['name']}"
+                    )
+                    return await self._initiate_transfer(context, agent, "new quote")
+                elif fallback_type == "management":
+                    # Routing to Management as last resort
+                    logger.info(
+                        f"All PL Sales Agents and Account Executives unavailable, falling back to Management: {agent['name']}"
+                    )
+                    return await self._initiate_transfer(context, agent, "new quote")
+            else:
+                # All agents unavailable - offer voicemail
+                logger.warning(
+                    "All PL Sales Agents, Account Executives, and Management unavailable for new quote"
+                )
+                return (
+                    "I'm sorry, but all of our sales team members are currently unavailable. "
+                    "I can take your information and have someone call you back, or you can "
+                    "try again during our regular business hours, Monday through Friday, "
+                    "9 AM to 5 PM Eastern. Would you like to leave a message?"
+                )
+
+        # For Commercial Lines, use standard routing (CL Account Executives handle new business)
         agent = self._find_agent_for_transfer(context, is_new_business=True)
 
         if not agent:
@@ -797,7 +1090,7 @@ PERSONALITY:
             f"Transferring new quote call to {agent['name']}: {context.userdata}"
         )
 
-        return self._initiate_transfer(context, agent, "new quote")
+        return await self._initiate_transfer(context, agent, "new quote")
 
     @function_tool
     async def transfer_policy_change(
@@ -837,7 +1130,7 @@ PERSONALITY:
             f"Transferring policy change call to {agent['name']}: {context.userdata}"
         )
 
-        return self._initiate_transfer(context, agent, "policy change")
+        return await self._initiate_transfer(context, agent, "policy change")
 
     @function_tool
     async def transfer_coverage_question(
@@ -877,7 +1170,7 @@ PERSONALITY:
             f"Transferring coverage question call to {agent['name']}: {context.userdata}"
         )
 
-        return self._initiate_transfer(context, agent, "coverage question")
+        return await self._initiate_transfer(context, agent, "coverage question")
 
     @function_tool
     async def transfer_payment(
@@ -909,7 +1202,7 @@ PERSONALITY:
             logger.info(
                 f"Transferring payment call to VA ring group: {context.userdata}"
             )
-            return self._initiate_ring_group_transfer(context, "VA", "payment")
+            return await self._initiate_ring_group_transfer(context, "VA", "payment")
 
         # Fallback to Account Executive via alpha-split
         logger.info("VA ring group unavailable, falling back to Account Executive")
@@ -926,7 +1219,7 @@ PERSONALITY:
             f"Transferring payment call to {agent['name']} (fallback): {context.userdata}"
         )
 
-        return self._initiate_transfer(context, agent, "payment")
+        return await self._initiate_transfer(context, agent, "payment")
 
     @function_tool
     async def transfer_something_else(
@@ -978,6 +1271,4 @@ PERSONALITY:
         logger.info(f"{log_msg}: {context.userdata}")
 
         # For warm transfer, include context in the message
-        transfer_msg = self._initiate_transfer(context, agent, "other inquiry")
-
-        return transfer_msg
+        return await self._initiate_transfer(context, agent, "other inquiry")

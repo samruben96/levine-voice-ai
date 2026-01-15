@@ -8,12 +8,17 @@ import logging
 
 from livekit.agents import Agent, RunContext, function_tool
 
+from constants import HOLD_MESSAGE
 from instruction_templates import (
     SECURITY_INSTRUCTIONS,
     compose_instructions,
 )
-from models import CallerInfo, CallIntent
-from staff_directory import get_ring_group
+from models import CallerInfo, CallIntent, InsuranceType
+from staff_directory import (
+    find_agent_by_alpha,
+    get_alpha_route_key,
+    get_ring_group,
+)
 
 logger = logging.getLogger("agent")
 
@@ -27,19 +32,12 @@ class MortgageeCertificateAgent(Agent):
     - Proof of insurance for contractors/vendors
     - Loss payee information
 
-    IMPORTANT: This agent does NOT transfer to a person. It redirects callers to
-    email/self-service options:
-    - Certificate requests: Certificate@hlinsure.com
-    - Mortgagee requests: info@hlinsure.com
-    - Self-service: Harry Levine Insurance app for 24/7 certificate issuance
+    Certificate Flow:
+    1. First, ask if this is about a NEW certificate or an EXISTING one
+    2. NEW certificate: Provide email (Certificate@hlinsure.com) and self-service app option
+    3. EXISTING certificate (issues/questions): Collect caller info and transfer to Account Executive
 
-    Flow for Certificate Requests:
-    1. Inform about email requirement (Certificate@hlinsure.com)
-    2. Offer self-service option (HLI app)
-    3. Offer login help if needed
-    4. If login help needed -> Transfer to VA ring group or collect email
-
-    Flow for Mortgagee Requests:
+    Mortgagee Flow:
     1. Inform about email requirement (info@hlinsure.com)
     2. Offer additional help
 
@@ -58,27 +56,23 @@ class MortgageeCertificateAgent(Agent):
         super().__init__(
             instructions=compose_instructions(
                 "You are Aizellee, helping a caller with a certificate of insurance or mortgagee/lienholder request.",
-                "GOAL: Provide email/self-service information for their request - NO transfer to a person needed.",
+                "GOAL: Determine if it's a NEW certificate request (email/self-service) or EXISTING certificate issue (transfer to Account Executive).",
                 """KEY INFORMATION:
 - Certificate requests email: Certificate@hlinsure.com
 - Mortgagee requests email: info@hlinsure.com
 - Self-service app: Harry Levine Insurance app (24/7 certificate issuance)""",
                 """CERTIFICATE REQUEST FLOW:
-1. INFORM about email requirement:
-   "Thank you for reaching out. HLI requires all certificate requests to be sent in writing to Certificate@hlinsure.com."
-   Use provide_certificate_email_info tool.
+1. DISAMBIGUATE first:
+   "Are you calling about an existing certificate, or a new one you need issued?"
+   Use check_certificate_type tool with their response.
 
-2. OFFER self-service option:
-   "Did you know you can also issue your own certificates using the Harry Levine Insurance app 24/7?"
+2. For NEW certificate:
+   Use handle_new_certificate tool to provide email and self-service info.
+   Then offer login help if needed.
 
-3. CHECK login status:
-   "Do you know what your login information is, or do you need us to resend it?"
-   Use check_login_status tool.
-
-4. If they NEED login help:
-   - Ask for their email: "What email address should we send your login credentials to?"
-   - Use collect_email_for_credentials tool
-   - OR use transfer_for_login_help to connect them with customer service""",
+3. For EXISTING certificate:
+   Use handle_existing_certificate tool to collect info and transfer to Account Executive.
+   Collect: insurance type (business/personal), and either business name or spelled last name.""",
                 """MORTGAGEE/LIENHOLDER REQUEST FLOW:
 1. INFORM about email requirement:
    "Thank you for reaching out. HLI requires all mortgagee requests to be sent in writing to info@hlinsure.com."
@@ -86,24 +80,17 @@ class MortgageeCertificateAgent(Agent):
 
 2. OFFER additional help:
    "Is there anything else I can help you with today?" """,
-                """CERTIFICATE KEYWORDS (for context):
-- "certificate of insurance", "COI", "certificate request"
-- "need a certificate", "proof of insurance for"
-- "certificate for a job", "general contractor needs certificate"
-- "vendor certificate", "additional insured" """,
-                """MORTGAGEE KEYWORDS (for context):
-- "mortgagee", "lienholder", "mortgage company"
-- "lender needs", "bank needs proof", "add mortgagee"
-- "mortgagee change", "lien holder", "mortgage clause", "loss payee" """,
+                """COLLECTING INFO FOR EXISTING CERTIFICATE TRANSFER:
+- Ask: "Is this for business or personal insurance?"
+- For BUSINESS: "What is the name of the business?"
+- For PERSONAL: "Can you spell your last name for me?"
+Use record_caller_info tool, then transfer_existing_certificate.""",
                 """RULES:
 - Be helpful and informative
+- For certificates: ALWAYS ask new vs existing first
 - Provide email addresses clearly
-- Encourage self-service option for certificates
-- Only transfer for login help if they can't remember credentials""",
-                """IMPORTANT:
-- This flow does NOT require collecting business/personal info
-- No alpha-split routing needed
-- Email addresses are the primary solution""",
+- Encourage self-service option for NEW certificates
+- Only transfer for EXISTING certificate issues""",
                 SECURITY_INSTRUCTIONS,
             ),
         )
@@ -111,36 +98,171 @@ class MortgageeCertificateAgent(Agent):
     async def on_enter(self) -> None:
         """Called when this agent becomes active - start the appropriate flow."""
         if self._request_type == "certificate":
+            # For certificates, acknowledge and ask if new or existing first
             self.session.generate_reply(
-                instructions="The caller needs a certificate of insurance. Start by informing them about the email requirement (Certificate@hlinsure.com) using the provide_certificate_email_info tool, then offer the self-service app option."
+                instructions="Acknowledge the caller's certificate request briefly, then ask: 'Are you calling about an existing certificate, or a new one you need issued?' Then use check_certificate_type based on their answer. Example: 'I can help you with that. Are you calling about an existing certificate, or a new one you need issued?'"
             )
         elif self._request_type == "mortgagee":
+            # For mortgagee, acknowledge and provide email info
             self.session.generate_reply(
-                instructions="The caller has a mortgagee or lienholder request. Inform them about the email requirement (info@hlinsure.com) using the provide_mortgagee_email_info tool, then ask if there's anything else you can help with."
+                instructions="Acknowledge the caller's request briefly, then inform them about the email requirement (info@hlinsure.com) using the provide_mortgagee_email_info tool, then ask if there's anything else you can help with. Example: 'I can help you with that.'"
             )
         else:
             # Unknown type - ask to clarify
             self.session.generate_reply(
-                instructions="Ask the caller to clarify whether they need a certificate of insurance or have a mortgagee/lienholder request. Based on their answer, use the appropriate tool."
+                instructions="Acknowledge the caller briefly, then ask to clarify whether they need a certificate of insurance or have a mortgagee/lienholder request. Based on their answer, use the appropriate tool."
             )
 
     @function_tool
-    async def provide_certificate_email_info(
+    async def check_certificate_type(
+        self,
+        context: RunContext[CallerInfo],
+        is_new_certificate: bool,
+    ) -> str:
+        """Determine if the caller needs a NEW certificate or has an EXISTING certificate issue.
+
+        Call this FIRST when a caller mentions certificates.
+
+        Args:
+            is_new_certificate: True if caller needs a NEW certificate issued,
+                              False if calling about an EXISTING certificate (issue, question, update)
+        """
+        context.userdata.call_intent = CallIntent.CERTIFICATES
+
+        if is_new_certificate:
+            logger.info(
+                "Certificate request - NEW certificate, providing email/self-service info"
+            )
+            return (
+                "All certificates need to be requested in writing. You can email them to "
+                "Certificate@hlinsure.com, or issue them 24/7 using the Harry Levine Insurance app. "
+                "Do you know your login information, or do you need us to resend it?"
+            )
+        else:
+            logger.info(
+                "Certificate request - EXISTING certificate, will transfer to Account Executive"
+            )
+            return (
+                "I can connect you with your Account Executive to help with that. "
+                "Is this for business or personal insurance?"
+            )
+
+    @function_tool
+    async def handle_new_certificate(
         self,
         context: RunContext[CallerInfo],
     ) -> str:
-        """Provide certificate of insurance email and self-service information.
+        """Provide information for requesting a NEW certificate.
 
-        Call this tool when the caller needs a certificate of insurance (COI).
-        This provides the email address and mentions the self-service app option.
+        Call this when caller confirms they need a NEW certificate issued.
+        Provides the email address and self-service app option.
         """
         context.userdata.call_intent = CallIntent.CERTIFICATES
-        logger.info("Certificate request - provided email info and self-service option")
-        return (
-            "Thank you for reaching out. HLI requires all certificate requests to be sent in writing to "
-            "Certificate@hlinsure.com. Did you know you can also issue your own certificates using the "
-            "Harry Levine Insurance app 24/7? Do you know what your login information is, or do you need us to resend it?"
+        logger.info(
+            "Certificate request - NEW certificate, providing email/self-service info"
         )
+        return (
+            "All certificates need to be requested in writing. You can email them to "
+            "Certificate@hlinsure.com, or issue them 24/7 using the Harry Levine Insurance app. "
+            "Do you know your login information, or do you need us to resend it?"
+        )
+
+    @function_tool
+    async def record_caller_info(
+        self,
+        context: RunContext[CallerInfo],
+        insurance_type: str,
+        identifier: str,
+    ) -> str:
+        """Record caller information for existing certificate transfer.
+
+        Call this after collecting insurance type and identifier.
+
+        Args:
+            insurance_type: Either "business" or "personal"
+            identifier: For business: the business name. For personal: the spelled last name.
+        """
+        if insurance_type.lower() == "business":
+            context.userdata.insurance_type = InsuranceType.BUSINESS
+            context.userdata.business_name = identifier
+            logger.info(f"Certificate - recorded business: {identifier}")
+        else:
+            context.userdata.insurance_type = InsuranceType.PERSONAL
+            context.userdata.last_name_spelled = identifier
+            logger.info(f"Certificate - recorded personal, last name: {identifier}")
+
+        return "Got it. Let me connect you with your Account Executive now."
+
+    @function_tool
+    async def transfer_existing_certificate(
+        self,
+        context: RunContext[CallerInfo],
+    ) -> str:
+        """Transfer caller to Account Executive for existing certificate issues.
+
+        REQUIREMENTS: record_caller_info must be called first to set insurance_type
+        and identifier (business_name or last_name_spelled).
+
+        Routes to Account Executives via alpha-split:
+        - Business (CL): A-F -> Adriana, G-O -> Rayvon, P-Z -> Dionna
+        - Personal (PL): A-G -> Yarislyn, H-M -> Al, N-Z -> Luis
+        """
+        userdata = context.userdata
+
+        # Validate requirements
+        if not userdata.insurance_type:
+            return "I need to know if this is for business or personal insurance first."
+
+        if (
+            userdata.insurance_type == InsuranceType.BUSINESS
+            and not userdata.business_name
+        ):
+            return "I need the name of your business before I can connect you."
+
+        if (
+            userdata.insurance_type == InsuranceType.PERSONAL
+            and not userdata.last_name_spelled
+        ):
+            return "I need you to spell your last name for me before I can connect you."
+
+        # Determine routing
+        if userdata.insurance_type == InsuranceType.BUSINESS:
+            department = "CL"
+            route_key = get_alpha_route_key(userdata.business_name or "")
+            identifier = userdata.business_name
+        else:
+            department = "PL"
+            route_key = (
+                userdata.last_name_spelled[0].upper()
+                if userdata.last_name_spelled
+                else "A"
+            )
+            identifier = userdata.last_name_spelled
+
+        # Find the Account Executive (existing client, so is_new_business=False)
+        agent = find_agent_by_alpha(route_key, department, is_new_business=False)
+
+        if not agent:
+            logger.warning(
+                f"No agent found for certificate transfer: key={route_key}, dept={department}"
+            )
+            return (
+                "I apologize, but I'm having trouble connecting you right now. "
+                "Can you please hold while I find someone to help?"
+            )
+
+        agent_name = agent.get("name", "an agent")
+        agent_ext = agent.get("ext", "unknown")
+
+        logger.info(
+            f"[MOCK TRANSFER] Certificate transfer to {agent_name} (ext {agent_ext}) "
+            f"for {department} client: {identifier}"
+        )
+
+        userdata.assigned_agent = agent_name
+        userdata.additional_notes = "Existing certificate issue"
+
+        return f"I'm connecting you with {agent_name} now. {HOLD_MESSAGE}"
 
     @function_tool
     async def provide_mortgagee_email_info(

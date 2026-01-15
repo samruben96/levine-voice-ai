@@ -11,7 +11,6 @@ from livekit.agents import Agent, RunContext, function_tool
 from business_hours import is_office_open
 from constants import HOLD_MESSAGE, get_carrier_claims_number
 from instruction_templates import (
-    EMPATHY_CLAIMS,
     SECURITY_INSTRUCTIONS,
     compose_instructions,
 )
@@ -29,21 +28,20 @@ class ClaimsAgent(Agent):
     - Report an accident, theft, damage, or other loss
     - Get help with the claims process
 
+    NOTE: The Assistant expresses empathy BEFORE handing off to this agent.
+    This agent should NOT repeat empathy phrases to avoid duplication.
+
     The agent handles claims differently based on whether the office is open:
 
     Business Hours Flow (Mon-Fri, 9 AM - 5 PM Eastern):
-    1. Show empathy about the situation
-    2. Transfer to claims ring group
+    1. Transfer to claims ring group immediately (empathy already expressed)
 
     After-Hours Flow:
-    1. Show empathy and explain team is not available
+    1. Explain team is not available (empathy already expressed)
     2. Inform caller they can find carrier claims number on policy documents
     3. If caller knows carrier: Look up and provide claims number
     4. If caller doesn't know carrier: Advise to check insurance card/documents
     5. Offer callback option
-
-    The agent prioritizes empathy as callers filing claims are often stressed
-    or have experienced something traumatic (accident, theft, fire, etc.).
     """
 
     def __init__(self, is_business_hours: bool | None = None) -> None:
@@ -60,57 +58,43 @@ class ClaimsAgent(Agent):
 
         if self._is_business_hours:
             instructions = compose_instructions(
-                "You are Aizellee, helping a caller who needs to file a claim.",
-                "GOAL: Show empathy and transfer them to the claims team.",
-                EMPATHY_CLAIMS,
-                """FLOW:
-1. ACKNOWLEDGE with sincere empathy:
-   - "I'm so sorry to hear that. Let me get you over to our claims team right away."
-   - If they mention injury/accident: "I'm so sorry. First, are you okay?"
+                "You are Aizellee, transferring a caller to the claims team.",
+                """YOUR ONLY JOB:
+1. Call transfer_to_claims IMMEDIATELY
+2. Be silent after that - done.
 
-2. TRANSFER to claims team:
-   - Use transfer_to_claims to connect them with our claims department""",
+The caller has already heard empathy from the receptionist. Do NOT say any empathy phrases.""",
                 """RULES:
-- Empathy first, business second
-- Don't ask unnecessary questions - just get them to claims team
-- If they want to explain, listen briefly and acknowledge""",
-                """EXAMPLES:
-- "Car accident" -> "I'm so sorry to hear about the accident. Are you okay? Let me connect you with our claims team."
-- "House was broken into" -> "Oh no, I'm so sorry. That must be very upsetting. Let me get you over to someone who can help." """,
+- Call the tool IMMEDIATELY - no speaking first
+- Stay silent after tool call
+- Never repeat empathy - it was already said""",
                 SECURITY_INSTRUCTIONS,
             )
         else:
             instructions = compose_instructions(
-                "You are Aizellee, helping a caller who needs to file a claim after hours.",
-                "GOAL: Show empathy and help them find their insurance carrier's claims number.",
-                EMPATHY_CLAIMS.replace(
-                    "Don't rush them",
-                    "Be understanding that they're calling after hours\n- Don't rush them",
-                ),
+                "You are Aizellee, helping a caller file a claim after hours.",
+                "GOAL: Explain we're closed but help find their carrier's claims number. The caller already heard empathy from the receptionist - do NOT repeat it.",
+                """TONE:
+- Stay warm, caring, and supportive throughout (the caller had a distressing experience)
+- Keep responses concise but human
+- Even when asking practical questions, maintain a supportive tone""",
                 """FLOW:
-1. ACKNOWLEDGE with sincere empathy AND set expectations:
-   - "I'm so sorry to hear that. Our team isn't in the office right now, but I can help you."
-   - "Most claims should be filed directly with your insurance carrier, and you can find their 24/7 claims number on your policy documents or insurance card."
+1. Start with ONLY this (no empathy - receptionist already said it):
+   "Our office is closed, but I can help you reach your carrier's 24/7 claims line. Do you know which insurance carrier you're with?"
 
-2. OFFER to help find carrier claims number:
-   - Ask: "Do you know which insurance carrier you're with?"
-   - If YES: Use record_carrier_name to look up and provide the claims number
-   - If NO: Advise them to check their insurance card or policy documents
+2. If YES: Use record_carrier_name to look up and provide the number.
+   If NO: "You can find their claims number on your insurance card or policy documents."
 
-3. OFFER callback option:
-   - If they want to speak with our team: "Our team will be back Monday through Friday, 9 AM to 5 PM. Would you like me to note your information for a callback?"
-   - If YES: Use request_callback to collect their info""",
-                """CARRIER LOOKUP:
-- Common carriers we have numbers for: Progressive, Travelers, Hartford, Liberty Mutual
-- If carrier not found: "I don't have that carrier's claims number in my system, but it should be on your insurance card or policy documents." """,
-                """RULES:
-- Empathy first, always
-- Be helpful even though we can't transfer them
-- Provide carrier claims number if we have it
-- Offer callback as an option, not a requirement""",
-                """EXAMPLES:
-- "Car accident" -> "I'm so sorry about the accident. Are you okay? Our team isn't in right now, but your insurance carrier has a 24/7 claims line. Do you know which carrier you're with?"
-- "House flooded" -> "Oh no, I'm so sorry to hear that. Our office is closed right now, but I can help you find your carrier's claims number. Do you know who your home insurance is through?" """,
+3. Only if they ask: Offer callback option using request_callback.
+
+NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump straight to helping them.""",
+                """CARRIER INFO:
+- We have numbers for: Progressive, Travelers, Hartford, Liberty Mutual
+- Unknown carrier: Direct them to check their insurance card""",
+                """AVOID:
+- Saying "I'm sorry to hear that" - already said by receptionist
+- Repeating that we're closed
+- Over-explaining the situation""",
                 SECURITY_INSTRUCTIONS,
             )
 
@@ -120,11 +104,11 @@ class ClaimsAgent(Agent):
         """Called when this agent becomes active - start the claims flow."""
         if self._is_business_hours:
             self.session.generate_reply(
-                instructions="Show empathy for their situation and offer to transfer them to the claims team. If they mentioned an accident or injury, ask if they're okay."
+                instructions="Call transfer_to_claims IMMEDIATELY. Do NOT say anything before calling the tool - empathy was already expressed by the receptionist."
             )
         else:
             self.session.generate_reply(
-                instructions="Show empathy for their situation, explain the office is closed, and offer to help them find their carrier's claims number. Ask if they know which insurance carrier they're with."
+                instructions="Say ONLY: 'Our office is closed, but I can help you reach your carrier's 24/7 claims line. Do you know which insurance carrier you're with?' Do NOT say empathy or ask if they're okay - that was already handled by the receptionist."
             )
 
     @function_tool
@@ -171,6 +155,7 @@ class ClaimsAgent(Agent):
         """Transfer the caller to the claims department.
 
         Call this during business hours to connect the caller with the claims team.
+        DO NOT say anything before calling this - the tool handles the transfer message.
         """
         context.userdata.call_intent = CallIntent.CLAIMS
 
@@ -183,11 +168,18 @@ class ClaimsAgent(Agent):
             f"phone={mask_phone(caller_phone) if caller_phone else 'unknown'}"
         )
 
+        # Speak the transfer message directly to avoid repetition
+        transfer_message = (
+            f"I'm connecting you with our claims team now. {HOLD_MESSAGE}"
+        )
+        await context.session.say(transfer_message, allow_interruptions=False)
+
         # TODO (Needs Client Input): What extension(s) handle claims during business hours?
         # For now, this is a placeholder that logs the transfer attempt.
         # In production, this would initiate actual SIP transfer.
 
-        return f"I'm connecting you with our claims team now. {HOLD_MESSAGE}"
+        # Return empty to signal completion - agent should stay silent
+        return ""
 
     @function_tool
     async def request_callback(
