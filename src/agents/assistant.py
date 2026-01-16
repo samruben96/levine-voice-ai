@@ -97,6 +97,19 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
 
 {greeting_instruction}
 
+⚠️ CRITICAL: CHECK OFFICE STATUS BEFORE ANY TRANSFER ⚠️
+Look at OFFICE STATUS above. If it says "Closed":
+- You CANNOT transfer to any staff member. They are NOT in the office.
+- NEVER say "I'll connect you with [name]" or "Let me transfer you" when CLOSED
+- The ONLY options when CLOSED are:
+  1. CLAIMS: Route to ClaimsAgent (it handles after-hours with carrier numbers)
+  2. CERTIFICATES/MORTGAGEE: Route to MortgageeCertificateAgent (provides email)
+  3. HOURS/LOCATION: Answer directly with provide_hours_and_location
+  4. EVERYTHING ELSE (quotes, payments, changes, etc.): Use route_call_after_hours
+     -> This takes a voicemail message so someone can call them back
+
+If OFFICE STATUS says "Open": Proceed with normal routing below.
+
 ROUTING QUICK REFERENCE:
 - HOURS/LOCATION: Use provide_hours_and_location (answer directly)
 - SPECIFIC AGENT (Sales Agent - Rachel Moreno, Brad): Use route_call_specific_agent first, which asks "What is this in reference to?". Then use complete_specific_agent_transfer:
@@ -116,19 +129,38 @@ ROUTING QUICK REFERENCE:
 - AFTER HOURS (non-claims): Use route_call_after_hours (handoff to AfterHoursAgent for voicemail flow)
 
 STANDARD FLOW FOR DIRECT TRANSFERS (quote, payment, change, cancellation, coverage, something else):
-YOU must collect ALL information BEFORE calling the transfer_* tool:
-1. ACKNOWLEDGE: Brief acknowledgment with appropriate tone (see TONE GUIDANCE below)
-2. INSURANCE TYPE from context clues:
-   - Business clues: "office", "company", "LLC", "store", "commercial", "work truck", "fleet" -> confirm business
-   - Personal clues: "car", "home", "auto", "family", "my vehicle" -> confirm personal
-   - If unclear: ask "Is this for business or personal insurance?"
-   - IMPORTANT: Context words are CLUES, not business names!
-3. CONTACT + IDENTIFIER (collect based on insurance type):
-   - BUSINESS: "Can I get your first and last name and a phone number in case we get disconnected?" -> use record_caller_contact_info
-     Then: "What is the name of the business?" -> use record_business_insurance_info (routing based on BUSINESS NAME)
-   - PERSONAL: "Can I have your first and last name? And could you spell your last name for me?" -> use record_caller_contact_info
-     Then: "And a phone number in case we get disconnected?" After phone, use record_personal_insurance_info with the spelled last name (routing based on LAST NAME)
-4. TRANSFER: Use the appropriate transfer_* tool (transfer_new_quote, transfer_payment, transfer_policy_change, transfer_cancellation, transfer_coverage_question, transfer_something_else)
+YOU must collect ALL information BEFORE calling the transfer_* tool.
+
+CRITICAL RULES - MUST FOLLOW EXACTLY:
+- Ask ONE question per turn. Wait for the answer before asking another.
+- NEVER combine questions like "name and phone number" or "phone number and insurance type"
+- NEVER batch: "Can I get your name and phone number?" - THIS IS WRONG
+- NEVER infer or hallucinate information:
+  - Phone area codes DO NOT indicate business vs personal (e.g., 818 is NOT "often used for personal" - this is made up)
+  - Name patterns DO NOT indicate business vs personal
+  - DO NOT make up facts about area codes, names, or any other data
+  - When uncertain about ANYTHING, ASK - never guess
+- If caller provides multiple pieces of info unprompted, acknowledge all and proceed - don't re-verify
+
+COLLECTION SEQUENCE - ONE QUESTION PER TURN:
+1. ACKNOWLEDGE: Brief acknowledgment with appropriate tone
+2. "May I have your first and last name?" -> wait for response
+3. "Could you spell your last name for me?" -> wait for response
+4. "And a phone number in case we get disconnected?" -> wait for response
+   -> After getting all three pieces, use record_caller_contact_info
+5. ONLY if not clear from context: "Is this for business or personal insurance?" -> wait for response
+6. BASED ON TYPE:
+   - BUSINESS: "What is the name of the business?" -> use record_business_insurance_info
+   - PERSONAL: Use record_personal_insurance_info with the spelled last name from step 3
+7. TRANSFER: Use the appropriate transfer_* tool
+
+DO NOT COMBINE QUESTIONS. Each turn = one question, one answer.
+
+INSURANCE TYPE DETECTION (context clues ONLY - never infer from area codes or names):
+- Business clues: "office", "company", "LLC", "store", "commercial", "work truck", "fleet" -> confirm business
+- Personal clues: "car", "home", "auto", "family", "my vehicle" -> confirm personal
+- If unclear: ask "Is this for business or personal insurance?"
+- IMPORTANT: Context words are CLUES, not business names!
 
 TONE GUIDANCE BY INTENT:
 - CANCELLATION: Show brief empathy ("I understand" or "I'm sorry to hear that"), don't be pushy about retention
@@ -273,7 +305,7 @@ PERSONALITY:
         else:
             formatted = phone_number  # Fallback to original
 
-        return f"Got it, I have {full_name} at {formatted}. Is that correct?"
+        return f"Recorded: {full_name}, {formatted}"
 
     @function_tool
     async def record_business_insurance_info(
@@ -294,7 +326,7 @@ PERSONALITY:
         context.userdata.business_name = business_name
 
         logger.info(f"Business insurance inquiry recorded for: {business_name}")
-        return f"Thank you, I have this noted for {business_name}."
+        return f"Recorded business insurance for: {business_name}"
 
     @function_tool
     async def record_personal_insurance_info(
@@ -339,7 +371,7 @@ PERSONALITY:
         logger.info(
             f"Personal insurance inquiry recorded, last name: {mask_name(context.userdata.last_name_spelled)}"
         )
-        return f"Thank you, I have that as {context.userdata.last_name_spelled}."
+        return f"Recorded personal insurance for last name: {context.userdata.last_name_spelled}"
 
     @function_tool
     async def route_call_claims(

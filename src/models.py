@@ -265,7 +265,7 @@ class CallerInfo:
         Returns:
             A string representation with name and phone masked for safe logging.
         """
-        from src.utils import mask_name, mask_phone
+        from utils import mask_name, mask_phone
 
         masked_name = mask_name(self.name) if self.name else None
         masked_phone = mask_phone(self.phone_number) if self.phone_number else None

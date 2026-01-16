@@ -150,7 +150,7 @@ async def my_agent(ctx: JobContext) -> None:
         ),
         # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
         # See all available models at https://docs.livekit.io/agents/models/llm/
-        llm=inference.LLM(model="openai/gpt-4.1-mini"),
+        llm=inference.LLM(model="openai/gpt-4.1"),  # Upgraded from gpt-4.1-mini for better instruction following
         # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
         # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
         # Voice ID: Default Cartesia voice from LiveKit examples. Browse available voices at:

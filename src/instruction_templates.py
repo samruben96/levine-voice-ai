@@ -152,22 +152,39 @@ EDGE_CASES_AFTER_HOURS = """EDGE CASES:
 # RULES FRAGMENTS
 # =============================================================================
 
-RULES_STANDARD = """RULES:
-- One question at a time
-- Context words are CLUES, not business names
-- If unclear, ask for clarification"""
+RULES_STANDARD = """RULES (MUST FOLLOW EXACTLY):
+- Ask ONE question per turn. Wait for the answer before asking another.
+- NEVER batch questions like "name and phone" or "phone and type of insurance"
+- NEVER infer information not explicitly stated:
+  - Phone area codes DO NOT indicate business vs personal insurance
+  - Name patterns DO NOT indicate business vs personal
+  - Company names DO NOT indicate coverage types or limits
+  - When uncertain, ASK - do not guess or infer
+- Context words (office, company, car, home) are CLUES for insurance TYPE detection only
+- Context words are NOT business names!
+- If unclear, ask for clarification - never assume"""
 
-RULES_WITH_SMART_DETECTION = """RULES:
-- One question at a time
+RULES_WITH_SMART_DETECTION = """RULES (MUST FOLLOW EXACTLY):
+- Ask ONE question per turn. Wait for the answer before asking another.
+- NEVER batch questions like "name and phone" or "phone and type of insurance"
+- NEVER infer information not explicitly stated:
+  - Phone area codes DO NOT indicate business vs personal insurance
+  - Name patterns DO NOT indicate business vs personal
+  - When uncertain, ASK - do not guess or infer
 - Context words are CLUES, not business names
 - If caller provides strong business context (work truck, company, fleet), don't ask business/personal
-- If unclear, ask for clarification"""
+- If unclear, ask for clarification - never assume"""
 
-RULES_CANCELLATION = """RULES:
-- One question at a time
+RULES_CANCELLATION = """RULES (MUST FOLLOW EXACTLY):
+- Ask ONE question per turn. Wait for the answer before asking another.
+- NEVER batch questions like "name and phone" or "phone and type of insurance"
+- NEVER infer information not explicitly stated:
+  - Phone area codes DO NOT indicate business vs personal insurance
+  - Name patterns DO NOT indicate business vs personal
+  - When uncertain, ASK - do not guess or infer
 - Context words are CLUES, not business names
 - If caller provides strong business context, don't ask business/personal
-- If unclear, ask for clarification
+- If unclear, ask for clarification - never assume
 - Don't try to talk them out of cancelling - that's the AE's job if appropriate"""
 
 
