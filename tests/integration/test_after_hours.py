@@ -128,8 +128,7 @@ async def test_hours_response_contextual_when_open() -> None:
     """Evaluation: Hours response should be contextual when office is open."""
     # Use a simulated 'open' time context
     open_context = (
-        "CURRENT TIME: 2:30 PM ET, Wednesday\n"
-        "OFFICE STATUS: Open (closes at 5 PM)"
+        "CURRENT TIME: 2:30 PM ET, Wednesday\nOFFICE STATUS: Open (closes at 5 PM)"
     )
 
     async with (
@@ -316,8 +315,7 @@ async def test_after_hours_claims_gets_special_handling() -> None:
 async def test_after_hours_hours_question_answered_directly() -> None:
     """Test that hours questions are answered directly even after hours."""
     after_hours_context = (
-        "CURRENT TIME: 6:00 AM ET, Monday\n"
-        "OFFICE STATUS: Closed (opens at 9 AM)"
+        "CURRENT TIME: 6:00 AM ET, Monday\nOFFICE STATUS: Closed (opens at 9 AM)"
     )
 
     async with (
@@ -453,7 +451,9 @@ async def test_after_hours_weekend_mentions_monday() -> None:
     ):
         await session.start(Assistant(business_hours_context=weekend_context))
 
-        result = await session.run(user_input="I'd like to speak to someone about a quote")
+        result = await session.run(
+            user_input="I'd like to speak to someone about a quote"
+        )
 
         # Skip function calls
         skip_function_events(result)

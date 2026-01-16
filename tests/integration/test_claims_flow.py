@@ -165,7 +165,9 @@ async def test_claims_intent_detection_water_damage() -> None:
     ):
         await session.start(Assistant())
 
-        result = await session.run(user_input="My house has water damage from a burst pipe")
+        result = await session.run(
+            user_input="My house has water damage from a burst pipe"
+        )
 
         # Skip function calls and handoff
         skip_function_events(result)

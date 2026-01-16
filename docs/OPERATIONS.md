@@ -187,7 +187,7 @@ Each staff member is defined with the following fields:
 | PL-Account Executive | Yarislyn | A-G | 7011 | 11:00-12:00 | Yes |
 | PL-Account Executive | Al | H-M | 7015 | 9:00-10:00 | Yes |
 | PL-Account Executive | Luis | N-Z | 7017 | 10:00-11:00 | Yes |
-| PL-Sales Agent | Queens | A-L | 7010 | - | Yes |
+| PL-Sales Agent | Rachel Moreno | A-L | 7010 | - | Yes |
 | PL-Sales Agent | Brad | M-Z | 7007 | - | Yes |
 | PL-Service | Ann | CSR | 7016 | 1:00-2:00 L | Yes |
 | PL-Service | Sheree | CSR | 7008 | 2:00-3:00 L | Yes |
@@ -262,7 +262,7 @@ Personal Lines has separate routing for new business vs. existing clients.
 
 | Alpha Range | Agent | Extension |
 |-------------|-------|-----------|
-| A-L | Queens | 7010 |
+| A-L | Rachel Moreno | 7010 |
 | M-Z | Brad | 7007 |
 
 #### Existing Clients (Account Executives)

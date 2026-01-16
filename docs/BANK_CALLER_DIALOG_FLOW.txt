@@ -1,0 +1,148 @@
+BANK CALLER CONVERSATION FLOW - VISUAL DIAGRAM
+================================================
+
+DETECTION
+---------
+  Caller says: "calling from [bank]" OR "verify coverage" OR "mutual customer"
+        |
+        V
+  route_call_mortgagee() → MortgageeCertificateAgent
+        |
+        V
+  GREETING: [Already handled by Assistant]
+  "I can help you with that."
+
+
+MAIN FLOW
+---------
+
+┌─────────────────────────────────────────────────────┐
+│ CLARIFYING QUESTION                                 │
+├─────────────────────────────────────────────────────┤
+│ "Let me clarify - are you requesting renewal       │
+│  documents or invoices for a mutual customer?"     │
+└────────────────────┬────────────────────────────────┘
+                     │
+         ┌───────────┴───────────┐
+         │                       │
+         V                       V
+    [YES/OK]                 [NO/UNCLEAR]
+         │                       │
+         │                       V
+         │           "No problem. Can you tell me
+         │            what you're calling about today?"
+         │                       │
+         │                   [LISTEN]
+         │                       │
+         │              ┌────────┴─────────┐
+         │              │                  │
+         │        [STILL BANK]        [SOMETHING ELSE]
+         │              │                  │
+         │              └──────┬──────────┘
+         │                     │
+         └────────┬────────────┘
+                  │
+                  V
+         ┌──────────────────────────────┐
+         │ INFORMATION RESPONSE         │
+         ├──────────────────────────────┤
+         │ "Perfect. All requests must  │
+         │  be submitted in writing to  │
+         │  Info@HLInsure.com.          │
+         │  No, we don't have a fax     │
+         │  number."                    │
+         └────────────┬─────────────────┘
+                      │
+                      V
+         ┌──────────────────────────────┐
+         │ OFFER NEXT STEP              │
+         ├──────────────────────────────┤
+         │ "Is there anything else      │
+         │  I can help with today?"     │
+         └────────────┬─────────────────┘
+                      │
+         ┌────────────┴────────────┐
+         │                         │
+         V                         V
+      [YES]                     [NO]
+       │                         │
+       V                         V
+   [HANDLE NEW              [CLOSE CALL]
+    REQUEST]
+
+
+ERROR RECOVERY BRANCHES
+-----------------------
+
+  If: "Can I speak to someone?"
+  Response: "I'm not able to transfer calls for documentation
+             requests, but the team at Info@HLInsure.com will
+             be happy to help. They typically respond within
+             one business day."
+                      │
+                      V
+            If still insisting:
+            "I understand. Unfortunately for documentation
+             requests, email is our process. The team responds
+             quickly. Would you like me to confirm that
+             email address again?"
+
+  If: "When will it be processed?"
+  Response: "That depends on what you're requesting. The team
+             at Info@HLInsure.com will let you know the
+             timeline once they receive your request."
+
+  If: "What's your fax number?"
+  Response: "No, we don't have a fax number."
+            [This is preempted in main flow]
+
+  If: "This is urgent"
+  Response: "I understand it's urgent. Please note that in
+             your email to Info@HLInsure.com and they'll
+             prioritize your request."
+
+
+KEY METRICS
+-----------
+Total Call Time: 45-90 seconds
+  - Greeting: 5 seconds
+  - Clarifying question: 8 seconds
+  - Caller response: 10-15 seconds
+  - Information response: 8 seconds
+  - Confirmation: 5 seconds
+  - Error recovery (if needed): 20-30 seconds
+
+Word Count per Agent Turn:
+  - Clarifying question: 16 words
+  - Information response: 22 words
+  - "No problem" redirect: 10 words
+  - Error recovery: 15-25 words
+
+Natural speaking pace: 150 WPM
+  → Clarifying question ≈ 6 seconds
+  → Information response ≈ 9 seconds
+
+
+DECISION POINTS SUMMARY
+-----------------------
+1. Clarifying question: YES or NO/UNCLEAR
+2. If NO: Is it still a bank request?
+3. Error recovery triggers: 5 common scenarios
+4. Follow-up offer: Additional help needed?
+
+
+AGENT TOOLS USED
+----------------
+In MortgageeCertificateAgent:
+  → provide_mortgagee_email_info()
+    (Already configured for bank callers)
+
+
+SUCCESS CRITERIA
+----------------
+✓ Caller understands info must be submitted in writing
+✓ Email address clearly provided: Info@HLInsure.com
+✓ "No fax" question preempted (caller doesn't ask)
+✓ Professional tone maintained throughout
+✓ No unwanted transfers attempted
+✓ Caller feels heard and helped

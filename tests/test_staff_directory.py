@@ -143,11 +143,11 @@ class TestFindAgentByAlpha:
 
     # Personal Lines - New Business (Sales Agents)
     def test_pl_new_business_a_to_l(self) -> None:
-        """Test PL new business routes to Queens for A-L."""
+        """Test PL new business routes to Rachel Moreno for A-L."""
         for letter in "ABCDEFGHIJKL":
             agent = find_agent_by_alpha(letter, "PL", is_new_business=True)
             assert agent is not None, f"No agent found for letter {letter}"
-            assert agent["name"] == "Queens"
+            assert agent["name"] == "Rachel Moreno"
             assert agent["department"] == "PL-Sales Agent"
 
     def test_pl_new_business_m_to_z(self) -> None:
@@ -232,7 +232,7 @@ class TestFindAgentByAlpha:
 
         agent = find_agent_by_alpha("A", "pl", is_new_business=True)
         assert agent is not None
-        assert agent["name"] == "Queens"
+        assert agent["name"] == "Rachel Moreno"
 
     def test_invalid_department(self) -> None:
         """Test that invalid department returns None."""
@@ -256,7 +256,7 @@ class TestIsTransferable:
         assert is_transferable("Adriana") is True
         assert is_transferable("Rayvon") is True
         assert is_transferable("Dionna") is True
-        assert is_transferable("Queens") is True
+        assert is_transferable("Rachel Moreno") is True
         assert is_transferable("Brad") is True
 
     def test_julie_explicitly_transferable(self) -> None:
@@ -303,9 +303,9 @@ class TestGetAgentByName:
         assert agent is not None
         assert agent["name"] == "Adriana"
 
-        agent = get_agent_by_name("queens")
+        agent = get_agent_by_name("rachel moreno")
         assert agent is not None
-        assert agent["name"] == "Queens"
+        assert agent["name"] == "Rachel Moreno"
 
     def test_no_match(self) -> None:
         """Test when no agent matches."""
@@ -401,7 +401,7 @@ class TestGetAgentsByDepartment:
         agents = get_agents_by_department("PL-Sales Agent")
         assert len(agents) == 2
         names = {agent["name"] for agent in agents}
-        assert names == {"Queens", "Brad"}
+        assert names == {"Rachel Moreno", "Brad"}
 
     def test_management(self) -> None:
         """Test getting all Management staff."""
@@ -742,3 +742,178 @@ class TestNameMatchingFix:
         agent = get_agent_by_name("Adriana Smith")
         assert agent is not None
         assert agent["name"] == "Adriana"
+
+
+# =============================================================================
+# PL SALES AGENT FALLBACK TESTS
+# =============================================================================
+
+
+class TestPLSalesAgentFallback:
+    """Tests for the PL Sales Agent fallback routing logic.
+
+    When both PL Sales Agents (Brad and Rachel Moreno) are unavailable,
+    the fallback chain is:
+    1. Primary PL Sales Agent for the alpha range
+    2. Alternate PL Sales Agent (the other one)
+    3. PL Account Executive for the alpha range
+    4. Management (Kelly U. or Julie L.)
+    """
+
+    def test_primary_agent_returned_when_available(self) -> None:
+        """Primary agent should be returned when available."""
+        from staff_directory import find_pl_sales_agent_with_fallback
+
+        # Letter 'A' -> Rachel Moreno (A-L)
+        agent, fallback_type = find_pl_sales_agent_with_fallback("A")
+        assert agent is not None
+        assert agent["name"] == "Rachel Moreno"
+        assert fallback_type == "primary"
+
+        # Letter 'M' -> Brad (M-Z)
+        agent, fallback_type = find_pl_sales_agent_with_fallback("M")
+        assert agent is not None
+        assert agent["name"] == "Brad"
+        assert fallback_type == "primary"
+
+    def test_all_letters_route_correctly(self) -> None:
+        """All letters should route to correct primary agent."""
+        from staff_directory import find_pl_sales_agent_with_fallback
+
+        # A-L should route to Rachel Moreno
+        for letter in "ABCDEFGHIJKL":
+            agent, fallback_type = find_pl_sales_agent_with_fallback(letter)
+            assert agent is not None, f"No agent for letter {letter}"
+            assert agent["name"] == "Rachel Moreno", f"Wrong agent for {letter}"
+            assert fallback_type == "primary"
+
+        # M-Z should route to Brad
+        for letter in "MNOPQRSTUVWXYZ":
+            agent, fallback_type = find_pl_sales_agent_with_fallback(letter)
+            assert agent is not None, f"No agent for letter {letter}"
+            assert agent["name"] == "Brad", f"Wrong agent for {letter}"
+            assert fallback_type == "primary"
+
+    def test_lowercase_letters_work(self) -> None:
+        """Lowercase letters should work correctly."""
+        from staff_directory import find_pl_sales_agent_with_fallback
+
+        agent, fallback_type = find_pl_sales_agent_with_fallback("a")
+        assert agent is not None
+        assert agent["name"] == "Rachel Moreno"
+        assert fallback_type == "primary"
+
+    @patch("staff_directory.is_agent_available")
+    def test_fallback_to_alternate_sales_agent(self, mock_available) -> None:
+        """Should fall back to alternate sales agent when primary unavailable."""
+        from staff_directory import find_pl_sales_agent_with_fallback
+
+        # Make Rachel Moreno unavailable, Brad available
+        def availability_side_effect(agent):
+            return agent["name"] != "Rachel Moreno"
+
+        mock_available.side_effect = availability_side_effect
+
+        # Letter 'A' normally goes to Rachel Moreno, should fall back to Brad
+        agent, fallback_type = find_pl_sales_agent_with_fallback("A")
+        assert agent is not None
+        assert agent["name"] == "Brad"
+        assert fallback_type == "alternate_sales"
+
+    @patch("staff_directory.is_agent_available")
+    def test_fallback_to_account_executive(self, mock_available) -> None:
+        """Should fall back to Account Executive when both sales agents unavailable."""
+        from staff_directory import find_pl_sales_agent_with_fallback
+
+        # Make both sales agents unavailable, account execs available
+        def availability_side_effect(agent):
+            return agent["department"] != "PL-Sales Agent"
+
+        mock_available.side_effect = availability_side_effect
+
+        # Letter 'A' -> should get Yarislyn (A-G Account Executive)
+        agent, fallback_type = find_pl_sales_agent_with_fallback("A")
+        assert agent is not None
+        assert agent["name"] == "Yarislyn"
+        assert fallback_type == "account_executive"
+
+        # Letter 'H' -> should get Al (H-M Account Executive)
+        agent, fallback_type = find_pl_sales_agent_with_fallback("H")
+        assert agent is not None
+        assert agent["name"] == "Al"
+        assert fallback_type == "account_executive"
+
+        # Letter 'N' -> should get Luis (N-Z Account Executive)
+        agent, fallback_type = find_pl_sales_agent_with_fallback("N")
+        assert agent is not None
+        assert agent["name"] == "Luis"
+        assert fallback_type == "account_executive"
+
+    @patch("staff_directory.is_agent_available")
+    def test_fallback_to_management(self, mock_available) -> None:
+        """Should fall back to Management when sales and account execs unavailable."""
+        from staff_directory import find_pl_sales_agent_with_fallback
+
+        # Make sales agents and account execs unavailable
+        def availability_side_effect(agent):
+            dept = agent.get("department", "")
+            return dept not in ["PL-Sales Agent", "PL-Account Executive"]
+
+        mock_available.side_effect = availability_side_effect
+
+        agent, fallback_type = find_pl_sales_agent_with_fallback("A")
+        assert agent is not None
+        assert fallback_type == "management"
+        # Should be Kelly U. or Julie L. (Jason L. and Fred are restricted)
+        assert agent["name"] in ["Kelly U.", "Julie L."]
+
+    @patch("staff_directory.is_agent_available")
+    def test_unavailable_when_all_fail(self, mock_available) -> None:
+        """Should return unavailable when all agents are unavailable."""
+        from staff_directory import find_pl_sales_agent_with_fallback
+
+        # Make everyone unavailable
+        mock_available.return_value = False
+
+        agent, fallback_type = find_pl_sales_agent_with_fallback("A")
+        assert agent is None
+        assert fallback_type == "unavailable"
+
+    def test_restricted_agents_skipped_in_fallback(self) -> None:
+        """Jason L. and Fred should never be returned as fallback."""
+        from staff_directory import find_pl_sales_agent_with_fallback
+
+        # Even if we patch to make them the only "available" ones,
+        # they should still be skipped
+        with patch("staff_directory.is_agent_available") as mock_available:
+            # Only Jason L. and Fred are "available"
+            def availability_side_effect(agent):
+                return agent["name"] in ["Jason L.", "Fred"]
+
+            mock_available.side_effect = availability_side_effect
+
+            agent, fallback_type = find_pl_sales_agent_with_fallback("A")
+            # Should be unavailable because restricted agents are skipped
+            assert agent is None
+            assert fallback_type == "unavailable"
+
+
+class TestGetAllPLSalesAgents:
+    """Tests for the get_all_pl_sales_agents helper function."""
+
+    def test_returns_both_sales_agents(self) -> None:
+        """Should return both Brad and Rachel Moreno."""
+        from staff_directory import get_all_pl_sales_agents
+
+        agents = get_all_pl_sales_agents()
+        assert len(agents) == 2
+        names = {agent["name"] for agent in agents}
+        assert names == {"Rachel Moreno", "Brad"}
+
+    def test_all_agents_are_sales_department(self) -> None:
+        """All returned agents should be from PL-Sales Agent department."""
+        from staff_directory import get_all_pl_sales_agents
+
+        agents = get_all_pl_sales_agents()
+        for agent in agents:
+            assert agent["department"] == "PL-Sales Agent"

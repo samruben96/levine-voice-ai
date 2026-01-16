@@ -26,6 +26,7 @@ The main Assistant agent handles all routing directly using specialized transfer
 - **transfer_cancellation**: Routes cancellation requests with empathy to Account Executives
 - **transfer_coverage_question**: Routes coverage/rate questions to Account Executives
 - **transfer_something_else**: Routes other inquiries with warm transfer support
+- **handle_bank_caller**: Handles bank representatives calling about mutual customers (provides email, no transfer)
 
 ### Specialized Sub-Agents
 
@@ -114,6 +115,10 @@ Agent (LiveKit base)
     |       |
     |       +-- transfer_something_else tool
     |               - Warm transfer support to Account Executives
+    |       |
+    |       +-- handle_bank_caller tool
+    |               - Handles bank reps about mutual customers
+    |               - Provides email address, no transfer
     |
     +-- ClaimsAgent (Claims filing - handoff from Assistant)
     |       - Business hours: empathy + transfer to claims team
@@ -150,6 +155,7 @@ The single-agent architecture with direct transfer tools provides several advant
 | CLAIMS | Filing claims | Handoff to ClaimsAgent |
 | MORTGAGEE_LIENHOLDERS | Mortgagee/lienholder inquiries | Handoff to MortgageeCertificateAgent |
 | CERTIFICATES | Certificate of insurance requests | Handoff to MortgageeCertificateAgent |
+| BANK_CALLER | Bank reps calling about mutual customers | Direct handling via `handle_bank_caller` |
 | HOURS_LOCATION | Office hours and directions | Direct answer (no transfer) |
 | SPECIFIC_AGENT | Requests for a specific person | Direct transfer or message |
 | SOMETHING_ELSE | Other inquiries | Direct transfer via `transfer_something_else` |

@@ -12,8 +12,6 @@ from livekit.agents import AgentSession, inference
 sys.path.insert(0, "src")
 from agent import Assistant, CallerInfo
 
-from .conftest import skip_function_events
-
 
 def _llm():
     return inference.LLM(model="openai/gpt-4.1-mini")

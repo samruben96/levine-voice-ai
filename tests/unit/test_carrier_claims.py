@@ -21,7 +21,9 @@ except ImportError:
 
 
 @pytest.mark.unit
-@pytest.mark.skipif(not HAS_CARRIER_LOOKUP, reason="get_carrier_claims_number not implemented")
+@pytest.mark.skipif(
+    not HAS_CARRIER_LOOKUP, reason="get_carrier_claims_number not implemented"
+)
 class TestCarrierClaimsNumbers:
     """Tests for carrier claims phone number lookup functionality."""
 

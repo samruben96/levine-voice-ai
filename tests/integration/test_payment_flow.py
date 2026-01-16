@@ -103,7 +103,9 @@ async def test_payment_intent_detection_dec_page() -> None:
     ):
         await session.start(Assistant())
 
-        result = await session.run(user_input="Can I get a copy of my declarations page?")
+        result = await session.run(
+            user_input="Can I get a copy of my declarations page?"
+        )
 
         # Skip function calls and handoff
         skip_function_events(result)
@@ -378,7 +380,9 @@ async def test_dec_page_request_flow() -> None:
         await session.start(Assistant())
 
         # Request dec page
-        await session.run(user_input="My mortgage company needs a copy of my declarations page")
+        await session.run(
+            user_input="My mortgage company needs a copy of my declarations page"
+        )
 
         # Provide contact info
         result = await session.run(user_input="Jane Smith, 555-987-6543")

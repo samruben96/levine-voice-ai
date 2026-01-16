@@ -233,7 +233,7 @@ New quotes route to Sales Agents based on caller's last name:
 
 ```
 Last Name First Letter --> Agent
-         A-L           --> Queens (ext 7010)
+         A-L           --> Rachel Moreno (ext 7010)
          M-Z           --> Brad (ext 7007)
 ```
 
@@ -528,7 +528,7 @@ def mask_name(name: str) -> str:
 Log output example:
 ```
 INFO - Recorded caller info: J***, ***-***-1234
-INFO - New quote - Personal insurance, last name: S**** (letter: S) -> Queens ext 7010
+INFO - New quote - Personal insurance, last name: S**** (letter: S) -> Rachel Moreno ext 7010
 ```
 
 ### Restricted Transfers

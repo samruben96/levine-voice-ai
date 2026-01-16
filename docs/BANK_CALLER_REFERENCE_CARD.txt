@@ -1,0 +1,280 @@
+================================================================================
+                    BANK CALLER - VOICE SCRIPT REFERENCE CARD
+================================================================================
+
+PRINT THIS for QA testing, voice testing, and development reference
+
+================================================================================
+THE FIVE EXACT RESPONSES (Copy/Paste Safe)
+================================================================================
+
+TURN 1: CLARIFYING QUESTION
+─────────────────────────────────────────────────────────────────────────────
+"Let me clarify - are you requesting renewal documents or invoices for
+ a mutual customer?"
+
+TURN 2a: RESPONSE IF YES
+─────────────────────────────────────────────────────────────────────────────
+"Perfect. All requests must be submitted in writing to Info@HLInsure.com.
+ No, we don't have a fax number."
+
+TURN 2b: RESPONSE IF NO / UNCLEAR
+─────────────────────────────────────────────────────────────────────────────
+"No problem. Can you tell me what you're calling about today?"
+
+ERROR RECOVERY: "Can I speak to someone?"
+─────────────────────────────────────────────────────────────────────────────
+"I'm not able to transfer calls for documentation requests, but the team at
+ Info@HLInsure.com will be happy to help. They typically respond within
+ one business day."
+
+ERROR RECOVERY: "This is urgent"
+─────────────────────────────────────────────────────────────────────────────
+"I understand it's urgent. Please note that in your email to Info@HLInsure.com
+ and they'll prioritize your request."
+
+================================================================================
+QUICK REFERENCE TABLE
+================================================================================
+
+WHAT THEY SAY                          WHAT YOU SAY
+─────────────────────────────────────────────────────────────────────────────
+"I'm calling from First Bank..."       Route to MortgageeCertificateAgent
+                                       Say: "I can help you with that."
+
+"Do you have a fax number?"            ALREADY ANSWERED in Turn 2a above
+                                       ("No, we don't have a fax number.")
+
+"When will it be processed?"           "That depends on what you're requesting.
+                                        The team at Info@HLInsure.com will let
+                                        you know the timeline once they receive
+                                        your request."
+
+"Can I get someone to call me back?"   "The fastest way is through
+                                        Info@HLInsure.com. Please mention in
+                                        your email that you need a callback."
+
+"What email again?"                    "Info@HLInsure.com - that's Info at
+                                        H-L-Insure dot com."
+
+================================================================================
+KEY PHONE NUMBERS & EMAILS
+================================================================================
+
+BANK / MORTGAGEE / LIENHOLDER REQUESTS:
+  Email: Info@HLInsure.com
+  Phone: [During business hours, transfer only if THEY request]
+  Fax: NOT AVAILABLE
+
+CERTIFICATE OF INSURANCE REQUESTS:
+  Email: Certificate@hlinsure.com
+  (Different from bank requests)
+
+OFFICE HOURS:
+  Monday through Friday
+  9 AM to 5 PM Eastern
+
+================================================================================
+FLOW DECISION TREE (Text Version)
+================================================================================
+
+START
+  ↓
+Caller identifies as bank/lender/mortgagee
+  ↓
+Ask: "Let me clarify - are you requesting renewal documents or invoices
+      for a mutual customer?"
+  ↓
+      YES ─→ Say: "Perfect. All requests must be submitted in writing..."
+             ↓
+             END CALL (or ask if anything else)
+      │
+      NO/UNCLEAR ─→ Say: "No problem. Can you tell me what you're calling
+             │            about today?"
+             │      ↓
+             │      Listen → Is it still a bank request?
+             │             ↓ YES → Back to "Perfect. All requests..."
+             │             ↓ NO → Route accordingly
+             │
+      If they ask: "Can I speak to someone?"
+             ↓
+             Say: "I'm not able to transfer..."
+             ↓
+             If still insisting: "I understand. Unfortunately for
+                                  documentation requests, email is our
+                                  process..."
+
+================================================================================
+TONE CHECKLIST
+================================================================================
+
+☑ Professional (insurance industry)
+☑ Warm but not overly friendly
+☑ Concise (no rambling)
+☑ Confident (no "ums" or "ahs")
+☑ Natural speech pace (not robotic)
+☑ Clear pronunciation (email: "Info at H-L-Insure dot com")
+☑ No apologizing unnecessarily
+☑ Respectful of their time
+☑ Empathetic to urgency/concerns
+☑ Boundary-setting where needed (can't transfer)
+
+================================================================================
+WHAT NOT TO SAY
+================================================================================
+
+❌ "How can I help you today?" (Opens to infinite possibilities)
+❌ "Let me transfer you to..." (We DON'T transfer doc requests)
+❌ "Can you provide more details?" (Too vague)
+❌ "Let me check with our team..." (Delays unnecessarily)
+❌ "Would you prefer to fax or email?" (Fax not an option)
+❌ "What is your request?" (Too open-ended)
+❌ "Are you requesting a mortgagee change?" (Too specific/assumes)
+❌ "I'll have to put you on hold..." (For doc requests, just email)
+
+================================================================================
+TESTING CHECKLIST
+================================================================================
+
+UNIT TEST:
+☐ Clarifying question exact match
+☐ Information response exact match
+☐ Redirect response exact match
+☐ All 3 error recovery responses word-perfect
+☐ Email addresses: Info@HLInsure.com (NOT Certificate@)
+
+VOICE TEST:
+☐ Natural pace (150 WPM)
+☐ Clear pronunciation (especially email)
+☐ Professional tone
+☐ No pauses or stumbles
+☐ Response latency < 2 seconds
+
+INTEGRATION TEST:
+☐ Detection: "calling from bank" → routes to MortgageeCertificateAgent
+☐ Happy path: Yes → Email response → No follow-ups
+☐ Redirect path: No → Ask clarifying question
+☐ Error path 1: "Can I speak to someone?" → Proper recovery
+☐ Error path 2: "This is urgent" → Proper recovery
+☐ Error path 3: "What's your fax?" → Already answered in main response
+
+QA TESTING:
+☐ Caller understands email requirement
+☐ Caller gets email address right
+☐ No transfer attempted for doc requests
+☐ Professional tone maintained
+☐ Caller feels heard
+
+================================================================================
+METRICS TO TRACK
+================================================================================
+
+CALL DURATION:
+  Target: 45-90 seconds
+  Breakdown:
+    - Greeting: 5 sec
+    - Clarifying Q: 8 sec
+    - Caller response: 10-15 sec
+    - Response: 8 sec
+    - Confirmation: 5 sec
+    - Error recovery (if needed): 20-30 sec
+
+WORD COUNTS:
+  Clarifying question: 16 words
+  Information response: 22 words
+  Redirect response: 10 words
+  Error recovery (transfer): 28 words
+  Error recovery (urgency): 20 words
+
+SUCCESS CRITERIA:
+  ✓ 0 unwanted transfer attempts
+  ✓ Exact wording matches
+  ✓ Caller achieves goal (knows to email)
+  ✓ Professional tone maintained
+  ✓ < 90 seconds total time
+
+================================================================================
+COMMON SCENARIOS - QUICK RESPONSE GUIDE
+================================================================================
+
+"Hi, I'm calling from Wells Fargo Bank..."
+  → Recognize as bank caller, acknowledge with "I can help you with that"
+  → Go to Clarifying Question
+
+"We need renewal declarations pages for a mutual customer"
+  → YES to clarifying question
+  → Use: "Perfect. All requests must be submitted in writing..."
+
+"Actually, I'm calling about something else"
+  → NO to clarifying question
+  → Use: "No problem. Can you tell me what you're calling about today?"
+
+"Can I speak to someone in your office?"
+  → Use error recovery: "I'm not able to transfer calls for documentation..."
+
+"We need this ASAP"
+  → Use error recovery: "I understand it's urgent. Please note that in your
+                         email to Info@HLInsure.com..."
+
+"Do you accept faxes?"
+  → ALREADY ANSWERED in main response ("No, we don't have a fax number")
+  → If asked again: "We don't accept fax. Email to Info@HLInsure.com"
+
+"What's the email address?"
+  → "Info@HLInsure.com - that's Info at H-L-Insure dot com"
+
+================================================================================
+AGENT TOOLS INVOLVED
+================================================================================
+
+Assistant Agent:
+  → route_call_mortgagee()
+       ↓
+MortgageeCertificateAgent:
+  → on_enter() [asks clarifying question]
+  → provide_mortgagee_email_info() [provides email]
+  → handle_bank_caller_request() [NEW - handles confirmation]
+  → handle_bank_transfer_request() [NEW - handles transfer request]
+  → handle_bank_urgency() [NEW - handles urgency]
+
+================================================================================
+IMPLEMENTATION STATUS
+================================================================================
+
+DONE:
+  ✓ Detection routing (route_call_mortgagee)
+  ✓ Basic mortgagee agent (MortgageeCertificateAgent)
+  ✓ Email configuration (Info@hlinsure.com)
+
+TODO:
+  ☐ Add exact wording to agent instructions
+  ☐ Add error recovery tools
+  ☐ Add clarifying question to on_enter()
+  ☐ Write unit tests
+  ☐ Write integration tests
+  ☐ Voice test
+  ☐ QA test bank scenarios
+  ☐ Production deployment
+
+================================================================================
+DOCUMENT REFERENCES
+================================================================================
+
+For detailed info, see:
+  📄 BANK_CALLER_SUMMARY.md ........... Executive summary
+  📄 BANK_CALLER_FLOW.md ............. Complete design with rationale
+  📄 BANK_CALLER_QUICK_REFERENCE.md .. One-page summary
+  📄 BANK_CALLER_DIALOG_FLOW.txt ..... Visual flow diagram
+  📄 BANK_CALLER_IMPLEMENTATION.md ... Code examples
+  📄 BANK_CALLER_REFERENCE_CARD.txt .. This file
+
+================================================================================
+PRINT THIS PAGE AND POST AT YOUR DESK
+================================================================================
+
+Last Updated: January 15, 2025
+Design Status: Ready for Implementation
+Approval: Pending
+Voice Testing: Pending
+
+Questions? See BANK_CALLER_SUMMARY.md for full design documentation.

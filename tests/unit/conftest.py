@@ -13,7 +13,6 @@ import pytest
 sys.path.insert(0, "src")
 from agent import CallerInfo, InsuranceType
 
-
 # =============================================================================
 # MOCK LLM FIXTURES
 # =============================================================================

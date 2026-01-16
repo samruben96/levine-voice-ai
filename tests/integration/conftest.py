@@ -8,12 +8,12 @@ import sys
 from typing import Any
 
 import pytest
-from livekit.agents import AgentSession, inference, llm as llm_module
+from livekit.agents import AgentSession, inference
+from livekit.agents import llm as llm_module
 
 # Import from the src directory
 sys.path.insert(0, "src")
 from agent import Assistant, CallerInfo
-
 
 # =============================================================================
 # EVENT SKIPPING HELPERS
@@ -58,7 +58,9 @@ def create_integration_llm(model: str = "openai/gpt-4.1-mini") -> llm_module.LLM
 # BUSINESS HOURS CONTEXT STRINGS
 # =============================================================================
 
-CONTEXT_OPEN = "CURRENT TIME: 2:30 PM ET, Wednesday\nOFFICE STATUS: Open (closes at 5 PM)"
+CONTEXT_OPEN = (
+    "CURRENT TIME: 2:30 PM ET, Wednesday\nOFFICE STATUS: Open (closes at 5 PM)"
+)
 
 CONTEXT_CLOSED_EVENING = (
     "CURRENT TIME: 7:30 PM ET, Tuesday\n"
@@ -71,8 +73,7 @@ CONTEXT_CLOSED_WEEKEND = (
 )
 
 CONTEXT_CLOSED_EARLY_MORNING = (
-    "CURRENT TIME: 7:00 AM ET, Thursday\n"
-    "OFFICE STATUS: Closed (opens at 9 AM)"
+    "CURRENT TIME: 7:00 AM ET, Thursday\nOFFICE STATUS: Closed (opens at 9 AM)"
 )
 
 
@@ -141,5 +142,7 @@ async def session_early_morning():
         llm as llm_ctx,
         AgentSession[CallerInfo](llm=llm_ctx, userdata=CallerInfo()) as session,
     ):
-        await session.start(Assistant(business_hours_context=CONTEXT_CLOSED_EARLY_MORNING))
+        await session.start(
+            Assistant(business_hours_context=CONTEXT_CLOSED_EARLY_MORNING)
+        )
         yield session, llm_ctx

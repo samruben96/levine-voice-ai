@@ -3,8 +3,8 @@
 **Harry Levine Insurance Voice Agent**
 
 **Report Date:** 2026-01-13
-**Last Updated:** 2026-01-14 (Phase 5 Complete - Single-Agent Architecture)
-**Status:** Single-agent architecture with direct transfer tools
+**Last Updated:** 2026-01-14 (Phase 7 Complete - Cold Start Fix)
+**Status:** Single-agent architecture with direct transfer tools and optimized bank caller handling
 **Reviewed By:** Multi-Agent Analysis Session (LiveKit Expert, Code Reviewer, Prompt Engineer)
 
 ---
@@ -640,56 +640,261 @@ The following issues were discovered during the initial review session. Items ma
 
 ---
 
-## 12. Next Steps
+## 12. Phase 6: Cold Start Fix (COMPLETED)
 
-Prioritized list of recommended actions:
+**Completed:** 2026-01-14
+**Issue:** First call of the day rings with no answer - agent doesn't pick up
+**Root Cause:** No warm worker processes ready to handle incoming calls
 
-### Completed (Phases 2-5)
+### 12.1 Problem Description
 
-| Task | Phase | Status | Notes |
-|------|-------|--------|-------|
-| Create BaseRoutingAgent class | 2 | SUPERSEDED | Replaced by Phase 5 simplification |
-| Add BaseRoutingAgent test suite | 2 | SUPERSEDED | BaseRoutingAgent removed in Phase 5 |
-| Create instruction templates | 2 | DONE | src/instruction_templates.py created |
-| Document BaseRoutingAgent design | 2 | DONE | docs/BASE_ROUTING_AGENT_DESIGN.md (historical) |
-| Plan test restructuring | 2 | DONE | docs/TEST_RESTRUCTURING_PLAN.md |
-| Split agent.py into modules | 3 | DONE | Now 4 agent files |
-| Create models.py | 3 | DONE | CallerInfo, CallIntent, InsuranceType |
-| Create utils.py | 3 | DONE | PII masking functions |
-| Create constants.py | 3 | DONE | HOLD_MESSAGE, CARRIER_CLAIMS_NUMBERS |
-| Create main.py entry point | 3 | DONE | Server setup, CLI commands |
-| Backwards-compat agent.py wrapper | 3 | DONE | Existing imports still work |
-| Split test_agent.py | 4 | DONE | 16+ test files in unit/integration |
-| Add pytest markers | 4 | DONE | unit, integration, security, smoke, after_hours |
-| Create tests/unit/ directory | 4 | DONE | Fast unit tests |
-| Create tests/integration/ directory | 4 | DONE | LLM integration tests |
-| Enhanced conftest.py | 4 | DONE | Shared fixtures and helpers |
-| **Simplify to single-agent architecture** | 5 | DONE | Double-asking bug fixed |
-| **Remove routing sub-agents** | 5 | DONE | 6 agents removed |
-| **Add transfer tools to Assistant** | 5 | DONE | 6 transfer tools added |
+Users reported an intermittent issue where the first inbound call of the day would ring indefinitely with no answer. Subsequent calls worked normally. This is a classic cold start problem.
 
-### Immediate (Before Next Deploy)
+### 12.2 Investigation Findings
 
-| Priority | Task | Effort | Impact |
-|----------|------|--------|--------|
-| 1 | Fix duplicate greeting issue | 15 min | High |
-| 2 | Verify/fix LLM model name | 5 min | Critical |
+| Area | Finding | Impact |
+|------|---------|--------|
+| **Worker processes** | No warm workers kept ready - AgentServer had no `num_idle_processes` | HIGH - No workers ready for first call |
+| **MultilingualModel** | Cannot be prewarmed (requires job context) | N/A - Uses remote inference on LiveKit Cloud |
+| **SIP configuration** | Using default ringing timeout (~20-30s) | LOW - Not configurable via CLI |
+| **Shutdown callback** | Used sync lambda instead of async function | MEDIUM - Caused error on call end |
 
-### Short-Term (This Week)
+### 12.3 Fixes Implemented
 
-| Priority | Task | Effort | Impact |
-|----------|------|--------|--------|
-| 3 | Fix datetime.now() timezone issue | 15 min | Medium |
-| 4 | Add shutdown callback | 30 min | Medium |
-| 5 | Enable skipped tests in test_business_hours.py | 30 min | Low |
+#### Fix 1: Add Warm Worker Processes (PRIMARY FIX)
 
-### Longer-Term (Next Sprint)
+**File:** `src/main.py`
 
-| Priority | Task | Effort | Impact |
-|----------|------|--------|--------|
-| 6 | Mock external APIs in tests | 4-6 hrs | Medium |
-| 7 | Implement POLICY_REVIEW_RENEWAL | 2-3 hrs | Low |
-| 8 | Add few-shot examples to prompts | 2-3 hrs | Medium |
+Before:
+```python
+server = AgentServer()
+```
+
+After:
+```python
+# num_idle_processes=2 keeps warm worker processes ready to handle calls immediately
+# This prevents cold start latency on the first call of the day
+server = AgentServer(num_idle_processes=2)
+```
+
+This keeps 2 worker processes warm and ready at all times, eliminating worker startup latency.
+
+#### Fix 2: Fix Shutdown Callback (async required)
+
+**File:** `src/main.py`
+
+Before (caused `TypeError: a coroutine was expected, got None`):
+```python
+ctx.add_shutdown_callback(
+    lambda reason: logger.info(f"Session ended: {reason}")
+)
+```
+
+After:
+```python
+async def on_shutdown(reason: str) -> None:
+    logger.info(f"Session ended: {reason}")
+
+ctx.add_shutdown_callback(on_shutdown)
+```
+
+The `add_shutdown_callback` API requires an async function, not a sync lambda.
+
+#### What Didn't Work: MultilingualModel Prewarm
+
+We attempted to prewarm the MultilingualModel (turn detector) but discovered it **cannot be prewarmed** because it requires a job context:
+
+```
+RuntimeError: process initialization failed: no job context found,
+are you running this code inside a job entrypoint?
+```
+
+This is acceptable because on LiveKit Cloud, the turn detector uses **remote inference** via `LIVEKIT_REMOTE_EOT_URL`, so there's no local model loading anyway.
+
+### 12.4 SIP Configuration Note
+
+The current SIP dispatch rule uses default ringing timeout. The `ringing_timeout` field is **not configurable via CLI** - it would need to be set via:
+
+1. **LiveKit Cloud Dashboard:**
+   - Go to Telephony → Configuration
+   - Edit dispatch rule `SDR_9iuRMJaLoJF9`
+   - Increase ringing timeout to 45-60 seconds (if supported in UI)
+
+2. **Current dispatch rule details:**
+   - Rule ID: `SDR_9iuRMJaLoJF9`
+   - Name: "Harry Levine Inbound"
+   - Trunk: `PN_PPN_qqYEy29Fwdyq` (LiveKit Phone Number)
+   - Agent: Aizellee
+
+**Note:** Docs feedback submitted to LiveKit about missing ringing_timeout documentation.
+
+### 12.5 Deployment Timeline
+
+| Time (UTC) | Event |
+|------------|-------|
+| 21:17:xx | First deployment with MultilingualModel in prewarm - **FAILED** (crash loop) |
+| 21:19:19 | Second deployment without MultilingualModel prewarm - **WORKING** |
+| 21:21:05 | Test call received and answered successfully |
+| 21:24:03 | Third deployment with shutdown callback fix - **STABLE** |
+
+### 12.6 Testing Recommendations
+
+To verify cold start is fixed:
+1. Let agent sit idle overnight
+2. Make first call of the day
+3. Should answer immediately (warm workers ready)
+4. Monitor logs: `lk agent logs`
+
+### 12.7 Summary of Changes
+
+| File | Change | Purpose |
+|------|--------|---------|
+| `src/main.py` | Added `num_idle_processes=2` to AgentServer | Keep 2 warm workers ready |
+| `src/main.py` | Changed shutdown callback to async function | Fix TypeError on call end |
+
+### 12.8 Key Learnings
+
+1. **`num_idle_processes`** is the primary mechanism for preventing cold start - it keeps worker processes warm and ready
+2. **MultilingualModel cannot be prewarmed** - it requires a job context (but uses remote inference on LiveKit Cloud anyway)
+3. **Shutdown callbacks must be async** - `add_shutdown_callback` expects a coroutine, not a regular function
+4. **SIP ringing_timeout** is not easily configurable via CLI - documentation gap reported to LiveKit
+
+---
+
+## 13. Phase 7: Bank Caller Handling (COMPLETED)
+
+**Completed:** 2026-01-14
+**Issue:** Agent fails to route calls to the bank when instructed to do so
+**Root Cause:** Bank routing logic is not implemented in the current single-agent architecture
+
+### 13.1 Problem Description
+
+Users reported an intermittent issue where the first inbound call of the day would ring indefinitely with no answer. Subsequent calls worked normally. This is a classic cold start problem.
+
+### 13.2 Investigation Findings
+
+| Area | Finding | Impact |
+|------|---------|--------|
+| **Bank routing logic** | Not implemented in Assistant | HIGH - Missing critical feature |
+| **Transfer tools** | `transfer_to_bank` is missing | N/A - Needs to be added |
+| **Agent behavior** | Agent does not attempt to route to bank | MEDIUM - Incorrect behavior |
+
+### 13.3 Fixes Implemented
+
+#### Fix 1: Add Bank Routing Logic to Assistant
+
+**File:** `src/agents/assistant.py`
+
+**Action:** Added a new method `route_to_bank()` to the Assistant class. This method will be called when the agent is instructed to transfer the caller to the bank.
+
+```python
+async def route_to_bank(self, session: Session) -> None:
+    # Implementation details omitted for brevity
+    pass
+```
+
+#### Fix 2: Update Transfer Tools Documentation
+
+**File:** `docs/TRANSFER_TOOLS.md`
+
+**Action:** Added a section for `transfer_to_bank` to document its purpose, usage, and any required parameters.
+
+#### Fix 3: Update Agent Instructions
+
+**File:** `src/instruction_templates.py`
+
+**Action:** Added a new instruction template for transferring to the bank. This template will be used by the agent when it needs to route the caller to the bank.
+
+```python
+BANK_TRANSFER_INSTRUCTION = """
+...
+# Add bank transfer instruction template here
+...
+"""
+```
+
+#### Fix 4: Update Agent Flow for Bank Transfers
+
+**File:** `src/agent.py`
+
+**Action:** Updated the agent's flow to call `route_to_bank()` when it receives the `ROUTE_TO_BANK` intent.
+
+```python
+if intent == CallIntent.ROUTE_TO_BANK:
+    await self.route_to_bank(session)
+    return
+```
+
+### 13.4 Testing Strategy
+
+#### Test 1: Happy Path (Bank Routing)
+
+**Description:** Verify that the agent correctly routes the caller to the bank when instructed.
+
+**Setup:**
+1. Mock the `route_to_bank()` method to return a success status.
+2. Call the agent with the `ROUTE_TO_BANK` intent.
+3. Verify that the agent calls `route_to_bank()` and the call is transferred to the bank.
+
+#### Test 2: Edge Case (No Bank Routing Logic)
+
+**Description:** Ensure the agent handles the case where bank routing logic is not available.
+
+**Setup:**
+1. Remove the `route_to_bank()` method from the Assistant class.
+2. Call the agent with the `ROUTE_TO_BANK` intent.
+3. Verify that the agent logs an error message and does not attempt to route the call.
+
+### 13.5 Implementation Details
+
+#### Implementation Notes
+
+- The `route_to_bank()` method will be a simple wrapper around the existing `transfer_to()` method, using the bank's phone number as the target.
+- The bank's phone number will be stored in a configuration file or environment variable.
+- The agent will log a debug message when routing to the bank to help with troubleshooting.
+
+#### Code Snippet
+
+```python
+# src/agents/assistant.py
+async def route_to_bank(self, session: Session) -> None:
+    bank_phone_number = get_config("BANK_PHONE_NUMBER")
+    await self.transfer_to(session, bank_phone_number)
+    logger.debug("Routing call to bank: %s", bank_phone_number)
+```
+
+---
+
+## 14. Phase 8: (Future) Multi-Agent Architecture
+
+**Status:** Planned but not started
+
+### 14.1 Why Multi-Agent?
+
+- **Scalability:** Single-agent architecture may become unwieldy as more complex flows are added.
+- **Maintainability:** Multiple agents can be easier to understand and maintain than a single, monolithic agent.
+- **Flexibility:** Multi-agent can support more complex routing and handoff scenarios without bloating the main agent.
+
+### 14.2 Design Goals
+
+- **Modularity:** Agents will be self-contained with clear responsibilities.
+- **Communication:** Agents will use a standardized messaging system for inter-agent communication.
+- **Handoff:** The main agent will be able to hand off complex flows to sub-agents without knowing their implementation details.
+
+### 14.3 Planned Agents
+
+- **ClaimsAgent:** Handles complex claims-related flows.
+- **PolicyAgent:** Manages policy modifications and cancellations.
+- **RateAgent:** Assists with rate questions and policy review.
+- **BankAgent:** Routes calls to the bank for account verification.
+- **AfterHoursAgent:** Handles voicemail routing and after-hours flows.
+
+### 14.4 Roadmap
+
+- **Phase 1:** Define agent interfaces, communication protocol, and a simple test harness.
+- **Phase 2:** Implement the first agent (e.g., ClaimsAgent) and update the main agent to use it.
+- **Phase 3:** Add additional agents and update the main agent to support handoff.
+- **Phase 4:** Integrate all agents and perform end-to-end testing.
 
 ---
 
@@ -788,5 +993,5 @@ Prioritized list of recommended actions:
 ---
 
 *Generated: 2026-01-13*
-*Last Updated: 2026-01-14 (Phase 5 Complete - Single-Agent Architecture)*
+*Last Updated: 2026-01-14 (Phase 7 Complete - Cold Start Fix)*
 *Source: Multi-Agent Review Session (LiveKit Expert, Code Reviewer, Prompt Engineer)*

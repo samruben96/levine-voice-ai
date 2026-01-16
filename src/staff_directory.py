@@ -13,7 +13,7 @@ Routing Rules:
    - Platinum clients go to Rachel T. (CL Department Manager)
 
 2. Personal Lines (PL) Routing:
-   - NEW business goes to PL Sales Agents: Queens (A-L), Brad (M-Z)
+   - NEW business goes to PL Sales Agents: Rachel Moreno (A-L), Brad (M-Z)
    - EXISTING clients go to PL Account Executives: Yarislyn (A-G), Al (H-M), Luis (N-Z)
    - The routing is based on the caller's last name first letter
 
@@ -56,9 +56,11 @@ __all__ = [
     "StaffDirectoryConfig",
     "StaffMember",
     "find_agent_by_alpha",
+    "find_pl_sales_agent_with_fallback",
     "get_agent_by_extension",
     "get_agent_by_name",
     "get_agents_by_department",
+    "get_all_pl_sales_agents",
     "get_alpha_route_key",
     "get_available_agent_by_alpha",
     "get_ring_group",
@@ -192,7 +194,7 @@ STAFF_DIRECTORY: StaffDirectoryConfig = {
         },
         {
             "department": "PL-Sales Agent",
-            "name": "Queens",
+            "name": "Rachel Moreno",
             "assigned": "A-L",
             "ext": "7010",
             "timeBlock": None,
@@ -336,7 +338,7 @@ def find_agent_by_alpha(
         >>> # Personal Lines, new business, last name starts with 'B'
         >>> agent = find_agent_by_alpha("B", "PL", is_new_business=True)
         >>> agent["name"] if agent else None
-        'Queens'
+        'Rachel Moreno'
 
         >>> # Personal Lines, existing client, last name starts with 'S'
         >>> agent = find_agent_by_alpha("S", "PL", is_new_business=False)
@@ -456,6 +458,73 @@ def get_available_agent_by_alpha(
     if agent and is_agent_available(agent):
         return agent
     return None
+
+
+def find_pl_sales_agent_with_fallback(
+    letter: str,
+) -> tuple[StaffMember | None, str]:
+    """Find an available PL Sales Agent for new quotes, with fallback options.
+
+    When the primary PL Sales Agent (Rachel Moreno A-L, Brad M-Z) is unavailable,
+    this function implements a fallback chain:
+    1. Try the primary PL Sales Agent for the alpha range
+    2. Try the OTHER PL Sales Agent (in case one is available)
+    3. Fall back to PL Account Executive for the alpha range
+    4. Fall back to Management (Kelly U., Julie L.)
+
+    Args:
+        letter: The routing letter (uppercase) based on caller's last name.
+
+    Returns:
+        Tuple of (agent, fallback_type) where:
+        - agent: The staff member to transfer to, or None if all unavailable
+        - fallback_type: One of "primary", "alternate_sales", "account_executive",
+                        "management", or "unavailable"
+
+    Examples:
+        >>> agent, fallback = find_pl_sales_agent_with_fallback("B")
+        >>> # Returns Rachel Moreno if available, or fallback agent
+    """
+    letter_upper = letter.upper()
+
+    # Step 1: Try primary PL Sales Agent
+    primary_agent = find_agent_by_alpha(letter_upper, "PL", is_new_business=True)
+    if primary_agent and is_agent_available(primary_agent):
+        return (primary_agent, "primary")
+
+    # Step 2: Try the OTHER PL Sales Agent
+    # If primary was Rachel Moreno (A-L), try Brad (M-Z) and vice versa
+    alternate_letter = "M" if letter_upper <= "L" else "A"
+    alternate_agent = find_agent_by_alpha(alternate_letter, "PL", is_new_business=True)
+    if alternate_agent and is_agent_available(alternate_agent):
+        return (alternate_agent, "alternate_sales")
+
+    # Step 3: Fall back to PL Account Executive for the original alpha range
+    # Account Executives: Yarislyn (A-G), Al (H-M), Luis (N-Z)
+    account_exec = find_agent_by_alpha(letter_upper, "PL", is_new_business=False)
+    if account_exec and is_agent_available(account_exec):
+        return (account_exec, "account_executive")
+
+    # Step 4: Fall back to Management (Kelly U. or Julie L.)
+    management_agents = get_agents_by_department("Management")
+    for manager in management_agents:
+        # Skip Jason L. (not transferable) and Fred (Special Projects)
+        if manager["name"] in ["Jason L.", "Fred"]:
+            continue
+        if is_agent_available(manager) and is_transferable(manager["name"]):
+            return (manager, "management")
+
+    # All fallbacks exhausted
+    return (None, "unavailable")
+
+
+def get_all_pl_sales_agents() -> list[StaffMember]:
+    """Get all PL Sales Agents.
+
+    Returns:
+        List of PL Sales Agent staff members.
+    """
+    return get_agents_by_department("PL-Sales Agent")
 
 
 def is_transferable(agent_name: str) -> bool:

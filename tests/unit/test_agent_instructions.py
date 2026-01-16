@@ -75,7 +75,10 @@ class TestAssistantBusinessHoursContext:
         assistant = Assistant()
 
         # Should establish the receptionist identity
-        assert "Aizellee" in assistant.instructions or "receptionist" in assistant.instructions.lower()
+        assert (
+            "Aizellee" in assistant.instructions
+            or "receptionist" in assistant.instructions.lower()
+        )
 
     def test_assistant_instructions_contain_company_info(self):
         """Test that instructions contain Harry Levine Insurance info."""
@@ -98,8 +101,7 @@ class TestAssistantBusinessHoursContext:
     def test_assistant_instructions_early_morning_context(self):
         """Test that early morning context is correctly injected."""
         early_context = (
-            "CURRENT TIME: 7:00 AM ET, Thursday\n"
-            "OFFICE STATUS: Closed (opens at 9 AM)"
+            "CURRENT TIME: 7:00 AM ET, Thursday\nOFFICE STATUS: Closed (opens at 9 AM)"
         )
         assistant = Assistant(business_hours_context=early_context)
 

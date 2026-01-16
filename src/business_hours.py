@@ -61,7 +61,9 @@ LOCATION: Final[str] = "Florida"
 OFFICE_ADDRESS: Final[str] = "7208 West Sand Lake Road, Suite 206, Orlando, FL 32819"
 
 # Human-readable office hours string for prompts
-OFFICE_HOURS_DISPLAY: Final[str] = "Monday - Friday, 9 AM to 5 PM Eastern"
+OFFICE_HOURS_DISPLAY: Final[str] = (
+    "Monday - Friday, 9 AM to 5 PM Eastern (closed 12-1 PM for lunch)"
+)
 
 
 @dataclass(frozen=True)

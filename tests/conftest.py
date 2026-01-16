@@ -623,10 +623,16 @@ def pytest_configure(config):
     - unit: Fast tests that don't require LLM
     - integration: Tests that use LLM inference
     - slow: Tests that may take longer to run
+    - security: Security-related tests
+    - smoke: Critical path smoke tests
+    - mortgagee: Mortgagee/bank caller related tests
     """
     config.addinivalue_line("markers", "unit: Fast unit tests (no LLM required)")
     config.addinivalue_line("markers", "integration: Integration tests (uses LLM)")
     config.addinivalue_line("markers", "slow: Slow-running tests")
+    config.addinivalue_line("markers", "security: Security-related tests")
+    config.addinivalue_line("markers", "smoke: Critical path smoke tests")
+    config.addinivalue_line("markers", "mortgagee: Mortgagee and bank caller tests")
 
 
 # =============================================================================
