@@ -95,12 +95,12 @@ TYPE_DETECTION_COVERAGE = """DETERMINE TYPE from context clues (SMART DETECTION)
 
 COLLECTION_FLOW_BUSINESS_PERSONAL = """COLLECT INFO (always ask - never assume):
 - BUSINESS: "What is the name of the business?" (wait for answer)
-- PERSONAL: "Can you spell your last name for me?" """
+- PERSONAL: "Can I have your first and last name? And could you spell your last name for me?" (always ask to spell for personal lines)"""
 
 # Dynamic template with tool name placeholders
 COLLECTION_FLOW_WITH_TOOLS = """COLLECT INFO (always ask - never assume):
 - BUSINESS: "What is the name of the business?" then use {business_tool}
-- PERSONAL: "Can you spell your last name for me?" then use {personal_tool}"""
+- PERSONAL: "Can I have your first and last name? And could you spell your last name for me?" then use {personal_tool}"""
 
 
 # =============================================================================
@@ -191,6 +191,27 @@ SECURITY_INSTRUCTIONS_EXTENDED = """SECURITY (ABSOLUTE RULES - NEVER VIOLATE):
 
 
 # =============================================================================
+# UNCERTAINTY AND CAPABILITY BOUNDARY FRAGMENTS
+# =============================================================================
+
+UNCERTAINTY_HANDLING = """## When Unsure
+- If you don't have specific information: "I don't have that specific information, but [agent name] can help you with that."
+- If caller asks about policy details: "I don't have access to policy details. Let me connect you with your Account Executive who can pull that up."
+- Never guess or make up information about coverage, prices, or policy terms
+- If carrier is unknown: "I don't have that carrier's information on file. Your insurance card should have their 24/7 claims number."
+- When in doubt, transfer to a human agent rather than guessing"""
+
+CAPABILITY_BOUNDARIES = """## What I Cannot Answer
+- Specific policy details, coverage amounts, or premium information
+- Claims status or settlement details
+- Binding quotes or coverage modifications
+- Legal or compliance advice
+- Anything requiring access to your policy file
+
+For these questions, I'll connect you with the right team member who can help."""
+
+
+# =============================================================================
 # CONFIRM AND TRANSFER FRAGMENTS
 # =============================================================================
 
@@ -230,7 +251,7 @@ CONTEXT CLUE DETECTION (only if insurance_type is not already set):
 EXAMPLES:
 - Caller info shows insurance_type=PERSONAL, last_name_spelled="SMITH": Say "I understand you'd like to cancel your personal policy under the name Smith. Let me connect you with your Account Executive." Then transfer.
 - Caller info shows insurance_type=BUSINESS, business_name="ABC Corp": Say "I understand you'd like to cancel the policy for ABC Corp. Let me connect you with your Account Executive." Then transfer.
-- Caller info shows insurance_type=PERSONAL but no last_name_spelled: Say "I understand you'd like to cancel your personal policy. Can you spell your last name for me so I can connect you with the right person?"
+- Caller info shows insurance_type=PERSONAL but no last_name_spelled: Say "I understand you'd like to cancel your personal policy. Can I have your first and last name? And could you spell your last name for me so I can connect you with the right person?"
 - Caller info shows nothing: Use context clues or ask "Is this for your business or personal insurance?" """
 
 ON_ENTER_CHECK_CONTEXT_COVERAGE = """Acknowledge their question briefly, then check if the caller already indicated business or personal context:
@@ -657,6 +678,23 @@ TRIGGERS_MORTGAGEE = [
     "mortgage clause",
     "loss payee",
     "update mortgagee information",
+]
+
+TRIGGERS_BANK_CALLER = [
+    "calling from bank",
+    "calling from [bank]",
+    "on a recorded line",
+    "mutual client",
+    "mutual customer",
+    "mutual insured",
+    "verify coverage for",
+    "confirm renewal",
+    "verify insurance for",
+    "confirm insurance for",
+    "bank calling about",
+    "lender calling about",
+    "bank representative",
+    "calling on behalf of [bank]",
 ]
 
 

@@ -131,6 +131,18 @@ class CallIntent(str, Enum):
     "mortgage company needs", "bank information on policy"
     """
 
+    BANK_CALLER = "bank_caller"
+    """Bank representative calling about a mutual customer.
+
+    Direct handling without transfer - provides email policy and confirms
+    no fax number available. This is for bank reps, NOT customers who
+    mention their bank.
+
+    Trigger phrases: "calling from [bank]", "on a recorded line",
+    "mutual client", "mutual customer", "bank representative",
+    "verify coverage for [policyholder]", "confirm renewal"
+    """
+
     CERTIFICATES = "certificates"
     """Certificate of insurance requests.
 
@@ -197,7 +209,9 @@ class CallerInfo:
     notes. It is passed through the agent system as userdata.
 
     Attributes:
-        name: Caller's full name
+        name: Caller's full name (for backwards compatibility)
+        first_name: Caller's first name
+        last_name: Caller's last name
         phone_number: Caller's phone number for callback
         insurance_type: Business or personal insurance
         business_name: Name of business (for business insurance)
@@ -206,9 +220,13 @@ class CallerInfo:
         specific_agent_name: Name of specific agent requested (if any)
         additional_notes: Any additional context or notes
         assigned_agent: Agent assigned via alpha-split routing
+        requested_sales_agent: Sales Agent name when caller requested specific Sales Agent
+        pending_ae_redirect: Flag indicating pending redirect to Account Executive
     """
 
     name: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
     phone_number: str | None = None
     insurance_type: InsuranceType | None = None
     business_name: str | None = None
@@ -217,6 +235,8 @@ class CallerInfo:
     specific_agent_name: str | None = None
     additional_notes: str = ""
     assigned_agent: str | None = None  # Agent assigned via alpha-split
+    requested_sales_agent: str | None = None  # Sales Agent requested by name
+    pending_ae_redirect: bool = False  # Redirect to AE after collecting info
 
     def is_ready_for_routing(self) -> bool:
         """Check if caller info has minimum required data for routing.
@@ -236,3 +256,21 @@ class CallerInfo:
             True if business_name or last_name_spelled is set, False otherwise.
         """
         return bool(self.business_name) or bool(self.last_name_spelled)
+
+    def to_safe_log(self) -> str:
+        """Return a safe string representation for logging with masked PII.
+
+        Uses mask_name() and mask_phone() from utils to protect sensitive data.
+
+        Returns:
+            A string representation with name and phone masked for safe logging.
+        """
+        from src.utils import mask_name, mask_phone
+
+        masked_name = mask_name(self.name) if self.name else None
+        masked_phone = mask_phone(self.phone_number) if self.phone_number else None
+
+        return (
+            f"CallerInfo(name={masked_name}, phone={masked_phone}, "
+            f"intent={self.call_intent}, insurance_type={self.insurance_type})"
+        )

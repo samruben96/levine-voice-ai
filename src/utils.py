@@ -73,6 +73,29 @@ def mask_name(name: str) -> str:
     return name[0] + "*" * (len(name) - 1) if name else "***"
 
 
+def mask_email(email: str | None) -> str:
+    """Mask email for logging, showing only first character and domain.
+
+    Args:
+        email: Email address to mask, or None
+
+    Returns:
+        Masked email like "j***@example.com" or "***" if invalid/empty
+
+    Examples:
+        >>> mask_email("john.smith@example.com")
+        'j***@example.com'
+        >>> mask_email("")
+        '***'
+        >>> mask_email(None)
+        '***'
+    """
+    if not email or "@" not in email:
+        return "***"
+    local, domain = email.split("@", 1)
+    return f"{local[0]}***@{domain}" if local else f"***@{domain}"
+
+
 # =============================================================================
 # PHONE VALIDATION
 # =============================================================================

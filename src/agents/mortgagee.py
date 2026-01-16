@@ -99,17 +99,17 @@ Use record_caller_info tool, then transfer_existing_certificate.""",
         """Called when this agent becomes active - start the appropriate flow."""
         if self._request_type == "certificate":
             # For certificates, acknowledge and ask if new or existing first
-            self.session.generate_reply(
+            await self.session.generate_reply(
                 instructions="Acknowledge the caller's certificate request briefly, then ask: 'Are you calling about an existing certificate, or a new one you need issued?' Then use check_certificate_type based on their answer. Example: 'I can help you with that. Are you calling about an existing certificate, or a new one you need issued?'"
             )
         elif self._request_type == "mortgagee":
             # For mortgagee, acknowledge and provide email info
-            self.session.generate_reply(
+            await self.session.generate_reply(
                 instructions="Acknowledge the caller's request briefly, then inform them about the email requirement (info@hlinsure.com) using the provide_mortgagee_email_info tool, then ask if there's anything else you can help with. Example: 'I can help you with that.'"
             )
         else:
             # Unknown type - ask to clarify
-            self.session.generate_reply(
+            await self.session.generate_reply(
                 instructions="Acknowledge the caller briefly, then ask to clarify whether they need a certificate of insurance or have a mortgagee/lienholder request. Based on their answer, use the appropriate tool."
             )
 

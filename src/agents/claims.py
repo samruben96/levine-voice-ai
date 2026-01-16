@@ -103,11 +103,11 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
     async def on_enter(self) -> None:
         """Called when this agent becomes active - start the claims flow."""
         if self._is_business_hours:
-            self.session.generate_reply(
+            await self.session.generate_reply(
                 instructions="Call transfer_to_claims IMMEDIATELY. Do NOT say anything before calling the tool - empathy was already expressed by the receptionist."
             )
         else:
-            self.session.generate_reply(
+            await self.session.generate_reply(
                 instructions="Say ONLY: 'Our office is closed, but I can help you reach your carrier's 24/7 claims line. Do you know which insurance carrier you're with?' Do NOT say empathy or ask if they're okay - that was already handled by the receptionist."
             )
 
@@ -151,11 +151,13 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
     async def transfer_to_claims(
         self,
         context: RunContext[CallerInfo],
-    ) -> str:
+    ) -> None:
         """Transfer the caller to the claims department.
 
         Call this during business hours to connect the caller with the claims team.
         DO NOT say anything before calling this - the tool handles the transfer message.
+
+        Returns None to signal the LLM to be silent after the transfer.
         """
         context.userdata.call_intent = CallIntent.CLAIMS
 
@@ -178,8 +180,8 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
         # For now, this is a placeholder that logs the transfer attempt.
         # In production, this would initiate actual SIP transfer.
 
-        # Return empty to signal completion - agent should stay silent
-        return ""
+        # Return None to signal completion - LLM should stay silent
+        # (per LiveKit docs: return None for silent completion)
 
     @function_tool
     async def request_callback(

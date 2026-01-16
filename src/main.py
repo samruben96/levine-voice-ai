@@ -35,8 +35,10 @@ from livekit.agents import (
     JobContext,
     JobProcess,
     JobRequest,
+    MetricsCollectedEvent,
     cli,
     inference,
+    metrics,
     room_io,
 )
 from livekit.plugins import noise_cancellation, silero
@@ -55,7 +57,9 @@ load_dotenv(".env.local")
 # SERVER SETUP
 # =============================================================================
 
-server = AgentServer()
+# num_idle_processes=2 keeps warm worker processes ready to handle calls immediately
+# This prevents cold start latency on the first call of the day
+server = AgentServer(num_idle_processes=2)
 
 
 def prewarm(proc: JobProcess) -> None:
@@ -64,6 +68,10 @@ def prewarm(proc: JobProcess) -> None:
     This function is called when the agent process starts. It:
     - Validates environment variables
     - Loads the VAD model with optimized latency parameters
+
+    Note: MultilingualModel (turn detector) cannot be prewarmed as it requires
+    a job context. On LiveKit Cloud it uses remote inference anyway, so the
+    latency impact is minimal.
 
     Args:
         proc: The job process to initialize.
@@ -119,6 +127,13 @@ async def my_agent(ctx: JobContext) -> None:
     # Initialize caller info to track collected data
     caller_info = CallerInfo()
 
+    # Register shutdown callback for graceful session termination BEFORE connecting
+    # Note: callback must be async (returns coroutine, not None)
+    async def on_shutdown(reason: str) -> None:
+        logger.info(f"Session ended: {reason}")
+
+    ctx.add_shutdown_callback(on_shutdown)
+
     # Set up a voice AI pipeline using OpenAI, Cartesia, AssemblyAI, and the LiveKit turn detector
     session = AgentSession[CallerInfo](
         # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
@@ -130,6 +145,7 @@ async def my_agent(ctx: JobContext) -> None:
             extra_kwargs={
                 "end_of_turn_confidence_threshold": 0.5,
                 "min_end_of_turn_silence_when_confident": 300,
+                "max_turn_silence": 1000,  # Safety net for long pauses
             },
         ),
         # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
@@ -140,7 +156,9 @@ async def my_agent(ctx: JobContext) -> None:
         # Voice ID: Default Cartesia voice from LiveKit examples. Browse available voices at:
         # https://cartesia.ai/voices (requires free account) and copy the voice ID to customize.
         tts=inference.TTS(
-            model="cartesia/sonic-3", voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"
+            model="cartesia/sonic-3",
+            voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
+            extra_kwargs={"speed": 0.85},
         ),
         # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
         # See more at https://docs.livekit.io/agents/build/turns
@@ -159,6 +177,11 @@ async def my_agent(ctx: JobContext) -> None:
         # Store caller information for the session
         userdata=caller_info,
     )
+
+    # Subscribe to metrics collection for observability
+    @session.on("metrics_collected")
+    def _on_metrics_collected(ev: MetricsCollectedEvent):
+        metrics.log_metrics(ev.metrics)
 
     # To use a realtime model instead of a voice pipeline, use the following session setup instead.
     # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
@@ -196,10 +219,18 @@ async def my_agent(ctx: JobContext) -> None:
         # Join the room and connect to the user
         await ctx.connect()
 
-        # Register shutdown callback for graceful session termination
-        ctx.add_shutdown_callback(
-            lambda reason: logger.info(f"Session ended: {reason}")
-        )
+        # Set up reconnection event handlers for connection state monitoring
+        @ctx.room.on("reconnecting")
+        def on_reconnecting():
+            logger.warning("Connection lost, attempting to reconnect...")
+
+        @ctx.room.on("reconnected")
+        def on_reconnected():
+            logger.info("Successfully reconnected to room")
+
+        @ctx.room.on("disconnected")
+        def on_disconnected():
+            logger.info("Disconnected from room")
 
         # Note: The initial greeting is handled by Assistant.on_enter() which calls
         # session.generate_reply() - this is the proper pattern for agent greetings.
