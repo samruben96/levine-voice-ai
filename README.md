@@ -343,7 +343,7 @@ lk agent rollback
 The agent uses a voice AI pipeline with:
 
 - **STT (Speech-to-Text)**: AssemblyAI Universal Streaming
-- **LLM**: OpenAI GPT-4.1-mini
+- **LLM**: OpenAI GPT-4.1
 - **TTS (Text-to-Speech)**: Cartesia Sonic-3
 - **Turn Detection**: LiveKit Multilingual Turn Detector
 - **VAD**: Silero VAD

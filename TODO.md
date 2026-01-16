@@ -2,6 +2,30 @@
 
 ## Completed
 
+### Conversation Quality & After-Hours Fixes (Completed 2026-01-15)
+- [x] **Fixed import bug**: Changed `from src.utils` to `from utils` in `src/models.py:268` (caused `ModuleNotFoundError` in `route_call_after_hours`)
+- [x] **Upgraded LLM model**: Changed from `gpt-4.1-mini` to `gpt-4.1` in `src/main.py:153` for better instruction following
+- [x] **Added critical office status gate**: Added prominent instructions at TOP of Assistant prompt to prevent transfers when office is closed
+  - NEVER say "I'll connect you to [name]" when office status is CLOSED
+  - Only CLAIMS, CERTIFICATES, MORTGAGEE, and HOURS/LOCATION are handled during after-hours
+  - Everything else routes to AfterHoursAgent for voicemail
+- [x] **Streamlined tool return messages**: Removed conversational responses that caused LLM to repeat/verify unnecessarily
+  - `record_caller_contact_info`: Changed from "Got it, I have X. Is that correct?" to "Recorded: X"
+  - `record_business_insurance_info`: Changed from "Thank you, I have this noted for X." to "Recorded business insurance for: X"
+  - `record_personal_insurance_info`: Changed from "Thank you, I have that as X." to "Recorded personal insurance for last name: X"
+- [x] **Added anti-hallucination rules**: Added explicit rules in instruction_templates.py and assistant.py
+  - "NEVER batch questions like 'name and phone' or 'phone and type of insurance'"
+  - "NEVER assume area codes based on name patterns or any other heuristics"
+  - "NEVER say the caller's area code unless they explicitly stated it"
+- [x] **Fixed AfterHoursAgent redundant questions**: Updated `on_enter()` to check if caller info was already collected
+  - If contact info + identifier + insurance type already exist, skips directly to voicemail message
+  - Prevents double-asking when info was collected by main Assistant before handoff
+- [x] **Fixed call not ending after voicemail**: Added `hangup_call()` helper function using LiveKit room delete API
+  - Uses `ctx.api.room.delete_room()` to properly terminate the call
+  - Called at end of `transfer_to_voicemail()` after voicemail message plays
+  - Called in `on_enter()` when skipping to voicemail with existing info
+  - Waits for speech to finish with `session.current_speech.wait_for_playout()` before hanging up
+
 ### Architecture Simplification - Phase 5 (Completed 2026-01-14)
 - [x] **Single-agent architecture**: Replaced multi-agent handoffs with direct transfer tools
 - [x] **Double-asking bug fix**: Callers no longer asked same questions twice after handoff
@@ -351,4 +375,4 @@ See `docs/REVIEW_AUDIT_REPORT.md` for the full multi-agent analysis including:
 
 ---
 
-*Last updated: 2026-01-14 (Phase 5: Single-agent architecture - double-asking bug fixed)*
+*Last updated: 2026-01-15 (Conversation quality fixes, LLM upgrade to gpt-4.1, after-hours call termination)*
