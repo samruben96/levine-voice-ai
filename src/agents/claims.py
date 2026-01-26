@@ -9,7 +9,7 @@ import logging
 from livekit.agents import Agent, RunContext, function_tool
 
 from business_hours import is_office_open
-from constants import HOLD_MESSAGE, get_carrier_claims_number
+from constants import get_carrier_claims_number
 from instruction_templates import (
     SECURITY_INSTRUCTIONS,
     compose_instructions,
@@ -58,16 +58,11 @@ class ClaimsAgent(Agent):
 
         if self._is_business_hours:
             instructions = compose_instructions(
-                "You are Aizellee, transferring a caller to the claims team.",
+                "You are Aizellee, silently executing a claims transfer.",
                 """YOUR ONLY JOB:
-1. Call transfer_to_claims IMMEDIATELY
-2. Be silent after that - done.
+Call transfer_to_claims NOW. Generate absolutely NO speech - the Assistant already announced the transfer.
 
-The caller has already heard empathy from the receptionist. Do NOT say any empathy phrases.""",
-                """RULES:
-- Call the tool IMMEDIATELY - no speaking first
-- Stay silent after tool call
-- Never repeat empathy - it was already said""",
+CRITICAL: Your entire response must be ONLY the tool call. No text, no acknowledgment, no empathy - complete silence.""",
                 SECURITY_INSTRUCTIONS,
             )
         else:
@@ -103,8 +98,9 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
     async def on_enter(self) -> None:
         """Called when this agent becomes active - start the claims flow."""
         if self._is_business_hours:
+            # Silently call the transfer tool - Assistant already announced the transfer
             await self.session.generate_reply(
-                instructions="Call transfer_to_claims IMMEDIATELY. Do NOT say anything before calling the tool - empathy was already expressed by the receptionist."
+                instructions="Call transfer_to_claims NOW. Generate NO speech - stay completely silent. The Assistant already announced the transfer to the caller."
             )
         else:
             await self.session.generate_reply(
@@ -155,7 +151,7 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
         """Transfer the caller to the claims department.
 
         Call this during business hours to connect the caller with the claims team.
-        DO NOT say anything before calling this - the tool handles the transfer message.
+        The Assistant already announced the transfer - this tool executes silently.
 
         Returns None to signal the LLM to be silent after the transfer.
         """
@@ -170,11 +166,8 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
             f"phone={mask_phone(caller_phone) if caller_phone else 'unknown'}"
         )
 
-        # Speak the transfer message directly to avoid repetition
-        transfer_message = (
-            f"I'm connecting you with our claims team now. {HOLD_MESSAGE}"
-        )
-        await context.session.say(transfer_message, allow_interruptions=False)
+        # No speech here - Assistant already said:
+        # "I'm so sorry to hear about that. Let me connect you with our claims team now, please stay on the line."
 
         # TODO (Needs Client Input): What extension(s) handle claims during business hours?
         # For now, this is a placeholder that logs the transfer attempt.
