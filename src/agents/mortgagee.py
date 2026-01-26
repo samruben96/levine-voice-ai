@@ -19,6 +19,7 @@ from staff_directory import (
     get_alpha_route_key,
     get_ring_group,
 )
+from utils import format_email_for_speech
 
 logger = logging.getLogger("agent")
 
@@ -32,10 +33,9 @@ class MortgageeCertificateAgent(Agent):
     - Proof of insurance for contractors/vendors
     - Loss payee information
 
-    Certificate Flow:
-    1. First, ask if this is about a NEW certificate or an EXISTING one
-    2. NEW certificate: Provide email (Certificate@hlinsure.com) and self-service app option
-    3. EXISTING certificate (issues/questions): Collect caller info and transfer to Account Executive
+    Certificate Flow (COMMERCIAL ONLY):
+    - For ALL certificate requests (new or existing): Provide email (Certificate@hlinsure.com)
+      and self-service app option. No transfer needed.
 
     Mortgagee Flow:
     1. Inform about email requirement (info@hlinsure.com)
@@ -56,41 +56,34 @@ class MortgageeCertificateAgent(Agent):
         super().__init__(
             instructions=compose_instructions(
                 "You are Aizellee, helping a caller with a certificate of insurance or mortgagee/lienholder request.",
-                "GOAL: Determine if it's a NEW certificate request (email/self-service) or EXISTING certificate issue (transfer to Account Executive).",
+                "GOAL: Provide email and self-service options for certificate/mortgagee requests. No transfer needed.",
                 """KEY INFORMATION:
+- Certificates are for COMMERCIAL insurance only
 - Certificate requests email: Certificate@hlinsure.com
 - Mortgagee requests email: info@hlinsure.com
 - Self-service app: Harry Levine Insurance app (24/7 certificate issuance)""",
                 """CERTIFICATE REQUEST FLOW:
-1. DISAMBIGUATE first:
-   "Are you calling about an existing certificate, or a new one you need issued?"
-   Use check_certificate_type tool with their response.
+For ALL certificate requests (new or existing):
+1. Provide email: Certificate@hlinsure.com
+2. Offer self-service app option (Harry Levine Insurance app for 24/7 issuance)
+3. Ask if they need help with login credentials
+4. No transfer needed for any certificate request
 
-2. For NEW certificate:
-   Use handle_new_certificate tool to provide email and self-service info.
-   Then offer login help if needed.
-
-3. For EXISTING certificate:
-   Use handle_existing_certificate tool to collect info and transfer to Account Executive.
-   Collect: insurance type (business/personal), and either business name or spelled last name.""",
+Use check_certificate_type or handle_new_certificate tool to provide this info.""",
                 """MORTGAGEE/LIENHOLDER REQUEST FLOW:
 1. INFORM about email requirement:
-   "Thank you for reaching out. HLI requires all mortgagee requests to be sent in writing to info@hlinsure.com."
+   "Got it. HLI requires all mortgagee requests to be sent in writing to info@hlinsure.com."
    Use provide_mortgagee_email_info tool.
 
 2. OFFER additional help:
    "Is there anything else I can help you with today?" """,
-                """COLLECTING INFO FOR EXISTING CERTIFICATE TRANSFER:
-- Ask: "Is this for business or personal insurance?"
-- For BUSINESS: "What is the name of the business?"
-- For PERSONAL: "Can you spell your last name for me?"
-Use record_caller_info tool, then transfer_existing_certificate.""",
                 """RULES:
 - Be helpful and informative
-- For certificates: ALWAYS ask new vs existing first
+- Certificates are commercial only - no need to ask business/personal
+- For ALL certificate requests: provide email + self-service app info
+- No transfer needed for certificate requests
 - Provide email addresses clearly
-- Encourage self-service option for NEW certificates
-- Only transfer for EXISTING certificate issues""",
+- Encourage self-service option""",
                 SECURITY_INSTRUCTIONS,
             ),
         )
@@ -98,9 +91,9 @@ Use record_caller_info tool, then transfer_existing_certificate.""",
     async def on_enter(self) -> None:
         """Called when this agent becomes active - start the appropriate flow."""
         if self._request_type == "certificate":
-            # For certificates, acknowledge and ask if new or existing first
+            # For certificates, acknowledge and provide email + self-service info directly
             await self.session.generate_reply(
-                instructions="Acknowledge the caller's certificate request briefly, then ask: 'Are you calling about an existing certificate, or a new one you need issued?' Then use check_certificate_type based on their answer. Example: 'I can help you with that. Are you calling about an existing certificate, or a new one you need issued?'"
+                instructions="Acknowledge the caller's certificate request briefly, then use the handle_new_certificate tool to provide the email (Certificate@hlinsure.com) and self-service app option. Example: 'I can help you with that.'"
             )
         elif self._request_type == "mortgagee":
             # For mortgagee, acknowledge and provide email info
@@ -119,9 +112,10 @@ Use record_caller_info tool, then transfer_existing_certificate.""",
         context: RunContext[CallerInfo],
         is_new_certificate: bool,
     ) -> str:
-        """Determine if the caller needs a NEW certificate or has an EXISTING certificate issue.
+        """Handle certificate request - provides email and self-service info for ALL certificate requests.
 
-        Call this FIRST when a caller mentions certificates.
+        Call this when a caller mentions certificates. Both new and existing certificate
+        requests get the same response: email + self-service app info.
 
         Args:
             is_new_certificate: True if caller needs a NEW certificate issued,
@@ -129,23 +123,16 @@ Use record_caller_info tool, then transfer_existing_certificate.""",
         """
         context.userdata.call_intent = CallIntent.CERTIFICATES
 
-        if is_new_certificate:
-            logger.info(
-                "Certificate request - NEW certificate, providing email/self-service info"
-            )
-            return (
-                "All certificates need to be requested in writing. You can email them to "
-                "Certificate@hlinsure.com, or issue them 24/7 using the Harry Levine Insurance app. "
-                "Do you know your login information, or do you need us to resend it?"
-            )
-        else:
-            logger.info(
-                "Certificate request - EXISTING certificate, will transfer to Account Executive"
-            )
-            return (
-                "I can connect you with your Account Executive to help with that. "
-                "Is this for business or personal insurance?"
-            )
+        cert_type = "NEW" if is_new_certificate else "EXISTING"
+        logger.info(
+            f"Certificate request - {cert_type} certificate, providing email/self-service info"
+        )
+        cert_email = format_email_for_speech("Certificate@hlinsure.com")
+        return (
+            f"All certificates need to be requested in writing. You can email them to "
+            f"{cert_email} Or issue them 24/7 using the Harry Levine Insurance app. "
+            "Do you know your login information, or do you need us to resend it?"
+        )
 
     @function_tool
     async def handle_new_certificate(
@@ -161,9 +148,10 @@ Use record_caller_info tool, then transfer_existing_certificate.""",
         logger.info(
             "Certificate request - NEW certificate, providing email/self-service info"
         )
+        cert_email = format_email_for_speech("Certificate@hlinsure.com")
         return (
-            "All certificates need to be requested in writing. You can email them to "
-            "Certificate@hlinsure.com, or issue them 24/7 using the Harry Levine Insurance app. "
+            f"All certificates need to be requested in writing. You can email them to "
+            f"{cert_email} Or issue them 24/7 using the Harry Levine Insurance app. "
             "Do you know your login information, or do you need us to resend it?"
         )
 
@@ -276,9 +264,10 @@ Use record_caller_info tool, then transfer_existing_certificate.""",
         """
         context.userdata.call_intent = CallIntent.MORTGAGEE_LIENHOLDERS
         logger.info("Mortgagee request - provided email info")
+        info_email = format_email_for_speech("info@hlinsure.com")
         return (
-            "Thank you for reaching out. HLI requires all mortgagee and lienholder requests to be sent in writing to "
-            "info@hlinsure.com. Is there anything else I can help you with today?"
+            f"Got it. HLI requires all mortgagee and lienholder requests to be sent in writing to "
+            f"{info_email} Is there anything else I can help you with today?"
         )
 
     @function_tool

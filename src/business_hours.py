@@ -65,6 +65,10 @@ OFFICE_HOURS_DISPLAY: Final[str] = (
     "Monday - Friday, 9 AM to 5 PM Eastern (closed 12-1 PM for lunch)"
 )
 
+# Lunch break times
+LUNCH_START: Final[time] = time(12, 0)  # 12:00 PM
+LUNCH_END: Final[time] = time(13, 0)  # 1:00 PM
+
 
 @dataclass(frozen=True)
 class DaySchedule:
@@ -226,7 +230,45 @@ def is_office_open(now: datetime | None = None) -> bool:
     # At exactly 5:00 PM, office is closed
     assert schedule.open_time is not None  # Type narrowing
     assert schedule.close_time is not None
+
+    # Check if it's lunch hour (12-1 PM on weekdays)
+    if LUNCH_START <= current_time < LUNCH_END:
+        return False
+
     return schedule.open_time <= current_time < schedule.close_time
+
+
+def is_lunch_hour(now: datetime | None = None) -> bool:
+    """Check if it's currently lunch hour (12:00 PM - 1:00 PM Eastern).
+
+    Args:
+        now: Optional datetime for testing. If None, uses current Eastern time.
+
+    Returns:
+        True if currently during lunch hour on a weekday, False otherwise.
+
+    Examples:
+        >>> from datetime import datetime
+        >>> from zoneinfo import ZoneInfo
+        >>> et = ZoneInfo("America/New_York")
+        >>> is_lunch_hour(datetime(2024, 1, 9, 12, 30, tzinfo=et))  # Tuesday 12:30 PM
+        True
+        >>> is_lunch_hour(datetime(2024, 1, 9, 11, 30, tzinfo=et))  # Tuesday 11:30 AM
+        False
+    """
+    if now is None:
+        now = get_current_time()
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=_EASTERN_TZ)
+    else:
+        now = now.astimezone(_EASTERN_TZ)
+
+    # Only lunch on weekdays
+    if now.weekday() >= 5:  # Saturday=5, Sunday=6
+        return False
+
+    current_time = now.time()
+    return LUNCH_START <= current_time < LUNCH_END
 
 
 def get_next_open_time(now: datetime | None = None) -> str:
@@ -512,6 +554,8 @@ OFFICE STATUS: {status}"""
 
 __all__ = [
     "LOCATION",
+    "LUNCH_END",
+    "LUNCH_START",
     "OFFICE_ADDRESS",
     "OFFICE_HOURS_DISPLAY",
     "TIMEZONE",
@@ -522,5 +566,6 @@ __all__ = [
     "get_current_time",
     "get_next_open_time",
     "get_timezone",
+    "is_lunch_hour",
     "is_office_open",
 ]

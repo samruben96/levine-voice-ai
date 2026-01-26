@@ -216,6 +216,7 @@ class CallerInfo:
         insurance_type: Business or personal insurance
         business_name: Name of business (for business insurance)
         last_name_spelled: Caller's last name as spelled (for personal insurance)
+        last_name_spelling_collected: Whether the last name spelling was explicitly collected
         call_intent: Detected call intent for routing
         specific_agent_name: Name of specific agent requested (if any)
         additional_notes: Any additional context or notes
@@ -231,6 +232,7 @@ class CallerInfo:
     insurance_type: InsuranceType | None = None
     business_name: str | None = None
     last_name_spelled: str | None = None
+    last_name_spelling_collected: bool = False
     call_intent: CallIntent | None = None
     specific_agent_name: str | None = None
     additional_notes: str = ""

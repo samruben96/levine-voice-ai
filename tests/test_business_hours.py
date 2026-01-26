@@ -20,6 +20,8 @@ import pytest
 sys.path.insert(0, "src")
 
 from business_hours import (
+    LUNCH_END,
+    LUNCH_START,
     OFFICE_HOURS_DISPLAY,
     TIMEZONE,
     WEEKLY_SCHEDULE,
@@ -29,6 +31,7 @@ from business_hours import (
     get_current_time,
     get_next_open_time,
     get_timezone,
+    is_lunch_hour,
     is_office_open,
 )
 
@@ -150,10 +153,10 @@ class TestIsOfficeOpen:
         test_time = make_eastern_datetime(2024, 1, 9, 14, 0)  # Tuesday 2:00 PM
         assert is_office_open(test_time) is True
 
-    def test_wednesday_noon_is_open(self) -> None:
-        """Wednesday at noon ET should be open."""
+    def test_wednesday_noon_is_closed_for_lunch(self) -> None:
+        """Wednesday at noon ET should be closed for lunch."""
         test_time = make_eastern_datetime(2024, 1, 10, 12, 0)  # Wednesday 12:00 PM
-        assert is_office_open(test_time) is True
+        assert is_office_open(test_time) is False
 
     def test_thursday_930am_is_open(self) -> None:
         """Thursday at 9:30 AM ET should be open."""
@@ -285,6 +288,102 @@ class TestIsOfficeOpen:
         assert isinstance(result, bool)
 
 
+class TestLunchHour:
+    """Tests for lunch hour detection (12:00 PM - 1:00 PM Eastern)."""
+
+    # -------------------------------------------------------------------------
+    # Lunch hour constants
+    # -------------------------------------------------------------------------
+
+    def test_lunch_start_is_noon(self) -> None:
+        """LUNCH_START should be 12:00 PM."""
+        assert time(12, 0) == LUNCH_START
+
+    def test_lunch_end_is_1pm(self) -> None:
+        """LUNCH_END should be 1:00 PM."""
+        assert time(13, 0) == LUNCH_END
+
+    # -------------------------------------------------------------------------
+    # is_lunch_hour function tests
+    # -------------------------------------------------------------------------
+
+    def test_1230pm_tuesday_is_lunch_hour(self) -> None:
+        """12:30 PM on Tuesday should be lunch hour."""
+        test_time = make_eastern_datetime(2024, 1, 9, 12, 30)  # Tuesday 12:30 PM
+        assert is_lunch_hour(test_time) is True
+
+    def test_1130am_tuesday_is_not_lunch_hour(self) -> None:
+        """11:30 AM on Tuesday should NOT be lunch hour."""
+        test_time = make_eastern_datetime(2024, 1, 9, 11, 30)  # Tuesday 11:30 AM
+        assert is_lunch_hour(test_time) is False
+
+    def test_noon_exactly_is_lunch_hour(self) -> None:
+        """12:00 PM exactly should be lunch hour."""
+        test_time = make_eastern_datetime(2024, 1, 9, 12, 0)  # Tuesday 12:00 PM
+        assert is_lunch_hour(test_time) is True
+
+    def test_1pm_exactly_is_not_lunch_hour(self) -> None:
+        """1:00 PM exactly should NOT be lunch hour (office reopens)."""
+        test_time = make_eastern_datetime(2024, 1, 9, 13, 0)  # Tuesday 1:00 PM
+        assert is_lunch_hour(test_time) is False
+
+    def test_1259pm_is_lunch_hour(self) -> None:
+        """12:59 PM should still be lunch hour."""
+        test_time = make_eastern_datetime(2024, 1, 9, 12, 59)  # Tuesday 12:59 PM
+        assert is_lunch_hour(test_time) is True
+
+    def test_saturday_noon_is_not_lunch_hour(self) -> None:
+        """Saturday at noon should NOT be lunch hour (weekend)."""
+        test_time = make_eastern_datetime(2024, 1, 13, 12, 30)  # Saturday 12:30 PM
+        assert is_lunch_hour(test_time) is False
+
+    def test_sunday_noon_is_not_lunch_hour(self) -> None:
+        """Sunday at noon should NOT be lunch hour (weekend)."""
+        test_time = make_eastern_datetime(2024, 1, 14, 12, 30)  # Sunday 12:30 PM
+        assert is_lunch_hour(test_time) is False
+
+    def test_each_weekday_at_lunch(self) -> None:
+        """Every weekday at 12:30 PM should be lunch hour."""
+        # Week of Jan 8-12, 2024
+        for day in range(8, 13):  # Monday through Friday
+            test_time = make_eastern_datetime(2024, 1, day, 12, 30)
+            assert is_lunch_hour(test_time) is True, f"Failed for day {day}"
+
+    # -------------------------------------------------------------------------
+    # is_office_open during lunch hour
+    # -------------------------------------------------------------------------
+
+    def test_office_closed_during_lunch(self) -> None:
+        """Office should be closed during lunch hour."""
+        test_time = make_eastern_datetime(2024, 1, 9, 12, 30)  # Tuesday 12:30 PM
+        assert is_office_open(test_time) is False
+
+    def test_office_open_at_1159am(self) -> None:
+        """Office should be open at 11:59 AM (before lunch)."""
+        test_time = make_eastern_datetime(2024, 1, 9, 11, 59)  # Tuesday 11:59 AM
+        assert is_office_open(test_time) is True
+
+    def test_office_open_at_1pm(self) -> None:
+        """Office should be open at 1:00 PM (after lunch)."""
+        test_time = make_eastern_datetime(2024, 1, 9, 13, 0)  # Tuesday 1:00 PM
+        assert is_office_open(test_time) is True
+
+    def test_office_open_at_101pm(self) -> None:
+        """Office should be open at 1:01 PM (after lunch)."""
+        test_time = make_eastern_datetime(2024, 1, 9, 13, 1)  # Tuesday 1:01 PM
+        assert is_office_open(test_time) is True
+
+    def test_accepts_none_uses_current_time(self) -> None:
+        """is_lunch_hour(None) should work and return a boolean."""
+        result = is_lunch_hour(None)
+        assert isinstance(result, bool)
+
+    def test_accepts_no_argument(self) -> None:
+        """is_lunch_hour() with no args should work."""
+        result = is_lunch_hour()
+        assert isinstance(result, bool)
+
+
 class TestIsOfficeOpenEdgeCases:
     """Additional edge case tests for is_office_open()."""
 
@@ -308,12 +407,12 @@ class TestIsOfficeOpenEdgeCases:
         test_time = make_eastern_datetime(2023, 12, 29, 16, 0)  # Friday 4:00 PM
         assert is_office_open(test_time) is True
 
-    def test_each_weekday_at_noon(self) -> None:
-        """Every weekday at noon should be open."""
+    def test_each_weekday_at_noon_is_closed_for_lunch(self) -> None:
+        """Every weekday at noon should be closed for lunch (12-1 PM)."""
         # Week of Jan 8-12, 2024
         for day in range(8, 13):  # Monday through Friday
             test_time = make_eastern_datetime(2024, 1, day, 12, 0)
-            assert is_office_open(test_time) is True, f"Failed for day {day}"
+            assert is_office_open(test_time) is False, f"Failed for day {day}"
 
     def test_each_weekday_at_8am(self) -> None:
         """Every weekday at 8 AM should be closed (before opening)."""
@@ -812,10 +911,11 @@ class TestIsOfficeOpenParameterized:
     @pytest.mark.parametrize(
         "day,hour,expected_open",
         [
-            # Monday (8) - Open during business hours
+            # Monday (8) - Open during business hours (except 12-1 PM lunch)
             (8, 8, False),  # 8 AM - before opening
             (8, 9, True),  # 9 AM - opening time
-            (8, 12, True),  # 12 PM - midday
+            (8, 12, False),  # 12 PM - lunch hour (closed)
+            (8, 13, True),  # 1 PM - after lunch
             (8, 16, True),  # 4 PM - afternoon
             (8, 17, False),  # 5 PM - closing time
             (8, 18, False),  # 6 PM - after hours

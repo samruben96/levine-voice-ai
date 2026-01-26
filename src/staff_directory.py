@@ -63,6 +63,7 @@ __all__ = [
     "get_all_pl_sales_agents",
     "get_alpha_route_key",
     "get_available_agent_by_alpha",
+    "get_bilingual_agents",
     "get_ring_group",
     "is_agent_available",
     "is_transferable",
@@ -78,6 +79,7 @@ class StaffMember(TypedDict, total=False):
     ext: str
     timeBlock: str | None
     transferable: bool
+    languages: list[str]  # e.g., ["en", "es"]
 
 
 class RingGroup(TypedDict):
@@ -147,6 +149,7 @@ STAFF_DIRECTORY: StaffDirectoryConfig = {
             "assigned": "CSR",
             "ext": "7014",
             "timeBlock": "2:00-3:00 L",
+            "languages": ["en", "es"],
         },
         {
             "department": "Management",
@@ -177,6 +180,7 @@ STAFF_DIRECTORY: StaffDirectoryConfig = {
             "assigned": "A-G",
             "ext": "7011",
             "timeBlock": "11:00-12:00",
+            "languages": ["en", "es"],
         },
         {
             "department": "PL-Account Executive",
@@ -191,6 +195,7 @@ STAFF_DIRECTORY: StaffDirectoryConfig = {
             "assigned": "N-Z",
             "ext": "7017",
             "timeBlock": "10:00-11:00",
+            "languages": ["en", "es"],
         },
         {
             "department": "PL-Sales Agent",
@@ -198,6 +203,7 @@ STAFF_DIRECTORY: StaffDirectoryConfig = {
             "assigned": "A-L",
             "ext": "7010",
             "timeBlock": None,
+            "languages": ["en", "es"],
         },
         {
             "department": "PL-Sales Agent",
@@ -701,3 +707,24 @@ def get_ring_group(group_name: str) -> RingGroup | None:
 
     ring_groups = STAFF_DIRECTORY.get("ringGroups", {})
     return ring_groups.get(group_name)
+
+
+def get_bilingual_agents(language: str = "es") -> list[StaffMember]:
+    """Get all staff members who speak the specified language.
+
+    Args:
+        language: Language code (e.g., "es" for Spanish). Default is Spanish.
+
+    Returns:
+        List of staff members who speak that language.
+
+    Examples:
+        >>> agents = get_bilingual_agents("es")
+        >>> len(agents) > 0
+        True
+    """
+    return [
+        staff
+        for staff in STAFF_DIRECTORY["staff"]
+        if language in staff.get("languages", ["en"])
+    ]
