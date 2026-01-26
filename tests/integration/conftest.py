@@ -54,6 +54,21 @@ def create_integration_llm(model: str = "openai/gpt-4.1-mini") -> llm_module.LLM
     return inference.LLM(model=model)
 
 
+def _llm(model: str = "openai/gpt-4.1-mini") -> llm_module.LLM:
+    """Create an LLM instance for integration tests.
+
+    This is the standard helper used across integration tests for creating
+    LLM instances that can be used as async context managers.
+
+    Args:
+        model: The model identifier to use. Defaults to gpt-4.1-mini.
+
+    Returns:
+        An LLM instance that can be used with `async with _llm() as llm`.
+    """
+    return inference.LLM(model=model)
+
+
 # =============================================================================
 # BUSINESS HOURS CONTEXT STRINGS
 # =============================================================================

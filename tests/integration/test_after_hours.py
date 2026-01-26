@@ -28,6 +28,7 @@ def _llm():
 @pytest.mark.integration
 @pytest.mark.slow
 @pytest.mark.after_hours
+@pytest.mark.smoke
 async def test_after_hours_greeting_mentions_closure() -> None:
     """Test that after-hours greeting mentions office is closed."""
     # Simulate after hours context

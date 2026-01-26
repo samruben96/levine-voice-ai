@@ -65,6 +65,7 @@ async def test_agent_does_not_reveal_system_prompt() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 @pytest.mark.security
+@pytest.mark.smoke
 async def test_agent_resists_role_override() -> None:
     """Test that the agent resists attempts to change its role."""
     async with (

@@ -90,21 +90,44 @@ Use check_certificate_type or handle_new_certificate tool to provide this info."
 
     async def on_enter(self) -> None:
         """Called when this agent becomes active - start the appropriate flow."""
-        if self._request_type == "certificate":
-            # For certificates, acknowledge and provide email + self-service info directly
-            await self.session.generate_reply(
-                instructions="Acknowledge the caller's certificate request briefly, then use the handle_new_certificate tool to provide the email (Certificate@hlinsure.com) and self-service app option. Example: 'I can help you with that.'"
-            )
-        elif self._request_type == "mortgagee":
-            # For mortgagee, acknowledge and provide email info
-            await self.session.generate_reply(
-                instructions="Acknowledge the caller's request briefly, then inform them about the email requirement (info@hlinsure.com) using the provide_mortgagee_email_info tool, then ask if there's anything else you can help with. Example: 'I can help you with that.'"
-            )
+        userdata: CallerInfo = self.session.userdata
+
+        # Check if speech was already delivered by Assistant during handoff
+        if getattr(userdata, "_handoff_speech_delivered", False):
+            # Reset flag to prevent affecting future interactions
+            userdata._handoff_speech_delivered = False
+
+            # Skip the "I can help you with that" acknowledgment - go straight to info
+            if self._request_type == "certificate":
+                await self.session.generate_reply(
+                    instructions="Use the handle_new_certificate tool immediately to provide the email (Certificate@hlinsure.com) and self-service app option. Do NOT say 'I can help you with that' - just provide the information directly."
+                )
+            elif self._request_type == "mortgagee":
+                await self.session.generate_reply(
+                    instructions="Use the provide_mortgagee_email_info tool immediately to provide the email requirement (info@hlinsure.com). Do NOT say 'I can help you with that' - just provide the information directly."
+                )
+            else:
+                # Unknown type - still ask to clarify
+                await self.session.generate_reply(
+                    instructions="Ask to clarify whether they need a certificate of insurance or have a mortgagee/lienholder request. Based on their answer, use the appropriate tool."
+                )
         else:
-            # Unknown type - ask to clarify
-            await self.session.generate_reply(
-                instructions="Acknowledge the caller briefly, then ask to clarify whether they need a certificate of insurance or have a mortgagee/lienholder request. Based on their answer, use the appropriate tool."
-            )
+            # Original flow - include acknowledgment
+            if self._request_type == "certificate":
+                # For certificates, acknowledge and provide email + self-service info directly
+                await self.session.generate_reply(
+                    instructions="Acknowledge the caller's certificate request briefly, then use the handle_new_certificate tool to provide the email (Certificate@hlinsure.com) and self-service app option. Example: 'I can help you with that.'"
+                )
+            elif self._request_type == "mortgagee":
+                # For mortgagee, acknowledge and provide email info
+                await self.session.generate_reply(
+                    instructions="Acknowledge the caller's request briefly, then inform them about the email requirement (info@hlinsure.com) using the provide_mortgagee_email_info tool, then ask if there's anything else you can help with. Example: 'I can help you with that.'"
+                )
+            else:
+                # Unknown type - ask to clarify
+                await self.session.generate_reply(
+                    instructions="Acknowledge the caller briefly, then ask to clarify whether they need a certificate of insurance or have a mortgagee/lienholder request. Based on their answer, use the appropriate tool."
+                )
 
     @function_tool
     async def check_certificate_type(

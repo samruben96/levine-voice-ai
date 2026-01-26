@@ -27,6 +27,7 @@ def _llm():
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.slow
+@pytest.mark.smoke
 async def test_new_quote_intent_detection_get_quote() -> None:
     """Evaluation: Aizellee should detect 'get a quote' as new quote intent."""
     async with (

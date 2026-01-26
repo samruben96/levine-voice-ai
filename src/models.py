@@ -121,6 +121,16 @@ class CallIntent(str, Enum):
     Used when: Caller's request doesn't match any specific intent pattern
     """
 
+    SPANISH_SPEAKER = "spanish_speaker"
+    """Spanish-speaking caller requiring bilingual assistance.
+
+    Routed to a bilingual staff member who speaks Spanish.
+    The agent says "Un momento, por favor" before initiating the transfer.
+
+    Trigger phrases: Caller speaks Spanish, "Español", "habla español",
+    "Spanish please", "do you speak Spanish"
+    """
+
     MORTGAGEE_LIENHOLDERS = "mortgagee_lienholders"
     """Questions about mortgagee or lienholder information.
 
@@ -223,6 +233,9 @@ class CallerInfo:
         assigned_agent: Agent assigned via alpha-split routing
         requested_sales_agent: Sales Agent name when caller requested specific Sales Agent
         pending_ae_redirect: Flag indicating pending redirect to Account Executive
+        _handoff_speech_delivered: Internal flag to track if transfer speech was already
+            spoken during handoff to prevent duplicate messages (underscore prefix
+            indicates internal state, not caller-provided data)
     """
 
     name: str | None = None
@@ -239,6 +252,8 @@ class CallerInfo:
     assigned_agent: str | None = None  # Agent assigned via alpha-split
     requested_sales_agent: str | None = None  # Sales Agent requested by name
     pending_ae_redirect: bool = False  # Redirect to AE after collecting info
+    # Track if transfer speech was already spoken during handoff to prevent duplicate messages
+    _handoff_speech_delivered: bool = False
 
     def is_ready_for_routing(self) -> bool:
         """Check if caller info has minimum required data for routing.

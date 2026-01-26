@@ -27,6 +27,7 @@ def _llm():
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.slow
+@pytest.mark.smoke
 async def test_policy_change_intent_detection_make_change() -> None:
     """Evaluation: Aizellee should detect 'make a change' as policy change intent."""
     async with (

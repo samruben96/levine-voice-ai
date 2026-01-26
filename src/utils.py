@@ -4,10 +4,20 @@ This module contains helper functions for:
 - PII masking (for secure logging)
 - Phone number validation
 - Environment variable validation
+- Structured routing decision logging
 """
 
+from __future__ import annotations
+
+import logging
 import os
 import re
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from models import CallIntent, InsuranceType
+
+logger = logging.getLogger("agent")
 
 # =============================================================================
 # ENVIRONMENT VALIDATION
@@ -145,3 +155,68 @@ def validate_phone(phone: str) -> tuple[bool, str]:
     if 10 <= len(digits) <= 15:
         return True, digits
     return False, phone
+
+
+# =============================================================================
+# STRUCTURED ROUTE DECISION LOGGING
+# =============================================================================
+
+
+def log_route_decision(
+    intent: CallIntent | str | None,
+    agent: str | None,
+    insurance_type: InsuranceType | None,
+    identifier: str | None,
+    destination: str,
+    *,
+    is_personal: bool = False,
+) -> None:
+    """Log a structured ROUTE_DECISION event for debugging routing decisions.
+
+    This function creates standardized log entries for all routing decisions,
+    enabling consistent debugging and analysis of call routing behavior.
+
+    The log format is:
+        ROUTE_DECISION: intent=<call_intent> | agent=<assigned_agent> |
+                       insurance_type=<type> | identifier=<masked_identifier> |
+                       destination=<destination_type>
+
+    Args:
+        intent: The detected call intent (CallIntent enum or string).
+        agent: The assigned agent name (may be None if routing to ring group).
+        insurance_type: Business or personal insurance type.
+        identifier: The routing identifier (business name or last name).
+                   Will be masked if is_personal=True.
+        destination: Description of where the call is being routed
+                    (e.g., "transfer", "handoff:ClaimsAgent", "ring_group:VA").
+        is_personal: If True, the identifier is a personal name and will be masked.
+                    Business names are not masked.
+
+    Example:
+        >>> log_route_decision(
+        ...     intent=CallIntent.NEW_QUOTE,
+        ...     agent="Rachel Moreno",
+        ...     insurance_type=InsuranceType.PERSONAL,
+        ...     identifier="Smith",
+        ...     destination="transfer",
+        ...     is_personal=True,
+        ... )
+        # Logs: ROUTE_DECISION: intent=new_quote | agent=Rachel Moreno |
+        #       insurance_type=personal | identifier=S**** | destination=transfer
+    """
+    # Convert enums to string values
+    # Use hasattr instead of isinstance because the import path may differ
+    # (e.g., src.models vs models), which creates different class objects
+    intent_str = intent.value if hasattr(intent, "value") else (intent or "None")
+    type_str = insurance_type.value if hasattr(insurance_type, "value") else "None"
+
+    # Mask personal identifiers (last names) but not business names
+    if identifier and is_personal:
+        masked_id = mask_name(identifier)
+    else:
+        masked_id = identifier or "None"
+
+    logger.info(
+        f"ROUTE_DECISION: intent={intent_str} | agent={agent or 'None'} | "
+        f"insurance_type={type_str} | identifier={masked_id} | destination={destination}"
+    )

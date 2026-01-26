@@ -27,6 +27,7 @@ def _llm():
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.slow
+@pytest.mark.smoke
 async def test_payment_intent_detection_make_payment() -> None:
     """Evaluation: Aizellee should detect 'make a payment' as payment intent."""
     async with (

@@ -30,7 +30,7 @@ from staff_directory import (
     is_agent_available,
     is_transferable,
 )
-from utils import format_email_for_speech, mask_name, mask_phone
+from utils import format_email_for_speech, log_route_decision, mask_name, mask_phone
 
 logger = logging.getLogger("agent")
 
@@ -125,7 +125,7 @@ ROUTING QUICK REFERENCE:
 - CANCELLATION: Collect ALL info (with empathy), then transfer_cancellation (direct transfer) - includes: cancel my policy, cancellation, want to cancel, stop my policy, end my policy, switching carriers, found cheaper insurance, non-renew, don't renew
 - COVERAGE/RATE QUESTIONS: Collect ALL info, then transfer_coverage_question (direct transfer) - includes: coverage question, rate question, why did my rate go up, premium increase, what's covered, am I covered for, does my policy cover, deductible, what are my limits, liability coverage, comprehensive, collision
 - SOMETHING ELSE/OTHER: Collect ALL info + summary, then transfer_something_else (direct transfer with warm handoff context) - for requests that don't fit other categories
-- CLAIMS: Use route_call_claims (handoff to ClaimsAgent) - includes: file a claim, I had an accident, car accident, water damage, fire damage, theft, break-in, vandalism. IMPORTANT: Say exactly: "I'm so sorry to hear about that. Let me connect you with our claims team now, please stay on the line." Then IMMEDIATELY call route_call_claims in the SAME turn. This is the ONLY transfer message - ClaimsAgent will be completely silent and just execute the transfer.
+- CLAIMS: Use route_call_claims (handoff to ClaimsAgent) - includes: file a claim, I had an accident, car accident, water damage, fire damage, theft, break-in, vandalism. IMMEDIATELY call the tool WITHOUT saying anything first - the tool handles ALL speech (empathy + transfer message). Do NOT speak before or after calling this tool.
 - CERTIFICATE OF INSURANCE: Use route_call_certificate IMMEDIATELY (handoff) - NO transfer, provides email/self-service info. Call this right away when you recognize the intent. Includes: certificate of insurance, COI, need a certificate, proof of insurance for [entity], additional insured, proof of insurance for mortgage, contractor needs certificate
 - MORTGAGEE/LIENHOLDER: Use route_call_mortgagee (handoff) - for policyholders updating mortgagee/lienholder info. Includes: add mortgagee, remove mortgagee, update mortgagee, lienholder, loss payee, mortgagee change, mortgage clause - NOT for customers requesting proof of insurance
 - BANK CALLING: Use handle_bank_caller IMMEDIATELY - DIRECT response, no questions, then END CALL. Bank reps calling about mutual customers. Triggers: "calling from [bank]", "on a recorded line", "mutual client", "bank representative", "verify coverage for [policyholder]", "confirm renewal". The tool provides THE COMPLETE AND FINAL response (email policy + no fax + goodbye). Do NOT add anything before or after. END THE CALL after speaking the response.
@@ -176,7 +176,7 @@ TONE GUIDANCE BY INTENT:
 - SOMETHING ELSE: Be curious and helpful, ask for brief summary of what they need
 
 SPECIAL NOTES:
-- For claims, say empathy ONCE ("I'm so sorry to hear about that. Are you okay?"), then call route_call_claims IMMEDIATELY. Do NOT acknowledge their claim intent multiple times. ONE acknowledgment, then tool call.
+- For claims: IMMEDIATELY call route_call_claims WITHOUT speaking - the tool handles all speech automatically.
 - Every call is NEW - never reference previous conversations
 
 AFTER-HOURS HANDLING:
@@ -382,11 +382,13 @@ PERSONALITY:
     async def route_call_claims(
         self,
         context: RunContext[CallerInfo],
-    ) -> tuple[Agent, str]:
+    ) -> Agent:
         """Route the call for filing or inquiring about a claim.
 
-        Call this when the caller needs to file a claim or has a claim-related question.
-        This includes:
+        Call this IMMEDIATELY when the caller needs to file a claim - do NOT speak first.
+        This tool handles ALL speech (empathy + transfer message) automatically.
+
+        Trigger phrases:
         - "file a claim", "make a claim", "need to report a claim"
         - "I had an accident", "car accident", "fender bender"
         - "someone hit me", "got into an accident"
@@ -397,31 +399,42 @@ PERSONALITY:
         - "roof damage", "storm damage", "hail damage"
         - "need to report a loss"
 
-        The ClaimsAgent handles claims differently based on office hours:
-        - During business hours: Transfers to claims team
-        - After hours: Helps caller find carrier's 24/7 claims number
-
-        IMPORTANT: Always show empathy first when someone mentions an accident,
-        theft, or other loss. Ask if they're okay if it involves an accident.
+        IMPORTANT: Do NOT speak before or after calling this tool. The tool speaks
+        the empathy and transfer message directly to the caller.
         """
         context.userdata.call_intent = CallIntent.CLAIMS
+        context.userdata._handoff_speech_delivered = True  # Mark speech as delivered
         logger.info(
             f"Detected claims request, handing off to ClaimsAgent: {context.userdata.to_safe_log()}"
         )
 
-        # Hand off to the specialized ClaimsAgent
-        # ClaimsAgent automatically checks business hours and adjusts its behavior
-        # Empty transition message - Assistant already expressed empathy before calling this tool
-        return (
-            ClaimsAgent(),
-            "",
+        # Log the routing decision
+        log_route_decision(
+            intent=CallIntent.CLAIMS,
+            agent=None,
+            insurance_type=context.userdata.insurance_type,
+            identifier=context.userdata.business_name
+            or context.userdata.last_name_spelled,
+            destination="handoff:ClaimsAgent",
+            is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
         )
+
+        # Speak the COMPLETE transfer message here (deterministic, not LLM)
+        # This is the ONLY speech for claims handoff - ClaimsAgent will be silent
+        await context.session.say(
+            f"I'm so sorry to hear about that. Let me connect you with our claims team now. {HOLD_MESSAGE}",
+            allow_interruptions=False,
+        )
+
+        # Return just the agent (no tuple) for SILENT handoff
+        # The tool already spoke via session.say() above
+        return ClaimsAgent()
 
     @function_tool
     async def route_call_certificate(
         self,
         context: RunContext[CallerInfo],
-    ) -> tuple[Agent, str]:
+    ) -> Agent:
         """Route the call for certificate of insurance requests.
 
         Call this when the caller needs a certificate of insurance (COI).
@@ -440,18 +453,29 @@ PERSONALITY:
             f"Detected certificate request, handing off to MortgageeCertificateAgent: {context.userdata.to_safe_log()}"
         )
 
-        # Hand off to the specialized MortgageeCertificateAgent
-        # Empty transition message - MortgageeCertificateAgent handles greeting in on_enter
-        return (
-            MortgageeCertificateAgent(request_type="certificate"),
-            "",
+        # Log the routing decision
+        log_route_decision(
+            intent=CallIntent.CERTIFICATES,
+            agent=None,
+            insurance_type=context.userdata.insurance_type,
+            identifier=context.userdata.business_name
+            or context.userdata.last_name_spelled,
+            destination="handoff:MortgageeCertificateAgent",
+            is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
         )
+
+        # Hand off to the specialized MortgageeCertificateAgent
+        # Set flag to signal handoff occurred - MortgageeCertificateAgent will skip redundant acknowledgment
+        context.userdata._handoff_speech_delivered = True
+        # Return just the agent (no tuple) for SILENT handoff
+        # MortgageeCertificateAgent handles greeting in on_enter
+        return MortgageeCertificateAgent(request_type="certificate")
 
     @function_tool
     async def route_call_mortgagee(
         self,
         context: RunContext[CallerInfo],
-    ) -> tuple[Agent, str]:
+    ) -> Agent:
         """Route the call for mortgagee or lienholder requests.
 
         Call this when:
@@ -471,12 +495,23 @@ PERSONALITY:
             f"Detected mortgagee request, handing off to MortgageeCertificateAgent: {context.userdata.to_safe_log()}"
         )
 
-        # Hand off to the specialized MortgageeCertificateAgent
-        # Empty transition message - MortgageeCertificateAgent handles greeting in on_enter
-        return (
-            MortgageeCertificateAgent(request_type="mortgagee"),
-            "",
+        # Log the routing decision
+        log_route_decision(
+            intent=CallIntent.MORTGAGEE_LIENHOLDERS,
+            agent=None,
+            insurance_type=context.userdata.insurance_type,
+            identifier=context.userdata.business_name
+            or context.userdata.last_name_spelled,
+            destination="handoff:MortgageeCertificateAgent",
+            is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
         )
+
+        # Hand off to the specialized MortgageeCertificateAgent
+        # Set flag to signal handoff occurred - MortgageeCertificateAgent will skip redundant acknowledgment
+        context.userdata._handoff_speech_delivered = True
+        # Return just the agent (no tuple) for SILENT handoff
+        # MortgageeCertificateAgent handles greeting in on_enter
+        return MortgageeCertificateAgent(request_type="mortgagee")
 
     @function_tool
     async def handle_bank_caller(
@@ -513,6 +548,15 @@ PERSONALITY:
         context.userdata.call_intent = CallIntent.BANK_CALLER
         logger.info(
             f"Bank caller detected, handling directly: {context.userdata.to_safe_log()}"
+        )
+
+        # Log the routing decision
+        log_route_decision(
+            intent=CallIntent.BANK_CALLER,
+            agent=None,
+            insurance_type=None,
+            identifier=None,
+            destination="direct:email_response",
         )
 
         # Speak the response directly to ensure consistent delivery
@@ -552,6 +596,19 @@ PERSONALITY:
                     f"Routing Spanish speaker to bilingual agent: {agent['name']} "
                     f"(ext {agent['ext']})"
                 )
+
+                # Log the routing decision
+                log_route_decision(
+                    intent=CallIntent.SPANISH_SPEAKER,
+                    agent=agent["name"],
+                    insurance_type=context.userdata.insurance_type,
+                    identifier=context.userdata.business_name
+                    or context.userdata.last_name_spelled,
+                    destination="transfer:bilingual_agent",
+                    is_personal=context.userdata.insurance_type
+                    == InsuranceType.PERSONAL,
+                )
+
                 return await self._initiate_transfer(context, agent, "Spanish speaker")
 
         # No bilingual agent available - provide alternative
@@ -566,7 +623,7 @@ PERSONALITY:
     async def route_call_after_hours(
         self,
         context: RunContext[CallerInfo],
-    ) -> tuple[Agent, str]:
+    ) -> Agent:
         """Route the call to the after-hours voicemail flow.
 
         Call this when:
@@ -599,12 +656,21 @@ PERSONALITY:
             f"Detected after-hours call, handing off to AfterHoursAgent: {context.userdata.to_safe_log()}"
         )
 
-        # Hand off to the specialized AfterHoursAgent
-        # The tuple (new_agent, transition_message) triggers the handoff
-        return (
-            AfterHoursAgent(),
-            "",  # No transition message - AfterHoursAgent has its own greeting
+        # Log the routing decision
+        log_route_decision(
+            intent=context.userdata.call_intent or "after_hours",
+            agent=None,
+            insurance_type=context.userdata.insurance_type,
+            identifier=context.userdata.business_name
+            or context.userdata.last_name_spelled,
+            destination="handoff:AfterHoursAgent",
+            is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
         )
+
+        # Hand off to the specialized AfterHoursAgent
+        # Return just the agent (no tuple) for SILENT handoff
+        # AfterHoursAgent has its own greeting in on_enter
+        return AfterHoursAgent()
 
     @function_tool
     async def route_call(
@@ -1104,6 +1170,19 @@ PERSONALITY:
                 "Can you please hold while I find someone to help?"
             )
 
+        # Log the routing decision
+        identifier = (
+            context.userdata.business_name or context.userdata.last_name_spelled
+        )
+        log_route_decision(
+            intent=CallIntent.CANCELLATION,
+            agent=agent["name"],
+            insurance_type=context.userdata.insurance_type,
+            identifier=identifier,
+            destination="transfer",
+            is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
+        )
+
         logger.info(
             f"Transferring cancellation call to {agent['name']}: {context.userdata.to_safe_log()}"
         )
@@ -1165,6 +1244,16 @@ PERSONALITY:
                     f"fallback_type={fallback_type}, agent={agent['name']}"
                 )
 
+                # Log the routing decision with fallback context
+                log_route_decision(
+                    intent=CallIntent.NEW_QUOTE,
+                    agent=agent["name"],
+                    insurance_type=InsuranceType.PERSONAL,
+                    identifier=userdata.last_name_spelled,
+                    destination=f"transfer:fallback_{fallback_type}",
+                    is_personal=True,
+                )
+
                 # Customize messaging based on fallback type
                 if fallback_type == "primary":
                     # Normal routing to designated sales agent
@@ -1210,6 +1299,16 @@ PERSONALITY:
                 f"last_name_spelled={context.userdata.last_name_spelled}"
             )
 
+        # Log the routing decision for Commercial Lines
+        log_route_decision(
+            intent=CallIntent.NEW_QUOTE,
+            agent=agent["name"],
+            insurance_type=context.userdata.insurance_type,
+            identifier=context.userdata.business_name,
+            destination="transfer",
+            is_personal=False,
+        )
+
         logger.info(
             f"Transferring new quote call to {agent['name']}: {context.userdata.to_safe_log()}"
         )
@@ -1253,6 +1352,19 @@ PERSONALITY:
                 f"business_name={context.userdata.business_name}, "
                 f"last_name_spelled={context.userdata.last_name_spelled}"
             )
+
+        # Log the routing decision
+        identifier = (
+            context.userdata.business_name or context.userdata.last_name_spelled
+        )
+        log_route_decision(
+            intent=CallIntent.MAKE_CHANGE,
+            agent=agent["name"],
+            insurance_type=context.userdata.insurance_type,
+            identifier=identifier,
+            destination="transfer",
+            is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
+        )
 
         logger.info(
             f"Transferring policy change call to {agent['name']}: {context.userdata.to_safe_log()}"
@@ -1298,6 +1410,19 @@ PERSONALITY:
                 f"last_name_spelled={context.userdata.last_name_spelled}"
             )
 
+        # Log the routing decision
+        identifier = (
+            context.userdata.business_name or context.userdata.last_name_spelled
+        )
+        log_route_decision(
+            intent=CallIntent.COVERAGE_RATE_QUESTIONS,
+            agent=agent["name"],
+            insurance_type=context.userdata.insurance_type,
+            identifier=identifier,
+            destination="transfer",
+            is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
+        )
+
         logger.info(
             f"Transferring coverage question call to {agent['name']}: {context.userdata.to_safe_log()}"
         )
@@ -1334,6 +1459,19 @@ PERSONALITY:
         # Try VA ring group first
         va_group = get_ring_group("VA")
         if va_group and va_group.get("extensions"):
+            # Log the routing decision for ring group
+            identifier = (
+                context.userdata.business_name or context.userdata.last_name_spelled
+            )
+            log_route_decision(
+                intent=CallIntent.MAKE_PAYMENT,
+                agent=None,
+                insurance_type=context.userdata.insurance_type,
+                identifier=identifier,
+                destination="ring_group:VA",
+                is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
+            )
+
             logger.info(
                 f"Transferring payment call to VA ring group: {context.userdata.to_safe_log()}"
             )
@@ -1351,6 +1489,19 @@ PERSONALITY:
                 f"business_name={context.userdata.business_name}, "
                 f"last_name_spelled={context.userdata.last_name_spelled}"
             )
+
+        # Log the routing decision for AE fallback
+        identifier = (
+            context.userdata.business_name or context.userdata.last_name_spelled
+        )
+        log_route_decision(
+            intent=CallIntent.MAKE_PAYMENT,
+            agent=agent["name"],
+            insurance_type=context.userdata.insurance_type,
+            identifier=identifier,
+            destination="transfer:va_fallback",
+            is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
+        )
 
         logger.info(
             f"Transferring payment call to {agent['name']} (fallback): {context.userdata.to_safe_log()}"
@@ -1404,6 +1555,19 @@ PERSONALITY:
                 f"business_name={context.userdata.business_name}, "
                 f"last_name_spelled={context.userdata.last_name_spelled}"
             )
+
+        # Log the routing decision
+        identifier = (
+            context.userdata.business_name or context.userdata.last_name_spelled
+        )
+        log_route_decision(
+            intent=CallIntent.SOMETHING_ELSE,
+            agent=agent["name"],
+            insurance_type=context.userdata.insurance_type,
+            identifier=identifier,
+            destination="transfer:warm",
+            is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
+        )
 
         # Log with summary for warm transfer context
         log_msg = f"Transferring 'something else' call to {agent['name']}"

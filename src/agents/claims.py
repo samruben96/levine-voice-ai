@@ -6,10 +6,10 @@ requests from callers, with different flows for business hours vs after-hours.
 
 import logging
 
-from livekit.agents import Agent, RunContext, function_tool
+from livekit.agents import Agent, AgentSession, RunContext, function_tool
 
 from business_hours import is_office_open
-from constants import get_carrier_claims_number
+from constants import HOLD_MESSAGE, get_carrier_claims_number
 from instruction_templates import (
     SECURITY_INSTRUCTIONS,
     compose_instructions,
@@ -57,12 +57,11 @@ class ClaimsAgent(Agent):
         )
 
         if self._is_business_hours:
+            # During business hours, the transfer is executed directly in on_enter()
+            # without LLM involvement. These instructions are minimal fallback.
             instructions = compose_instructions(
-                "You are Aizellee, silently executing a claims transfer.",
-                """YOUR ONLY JOB:
-Call transfer_to_claims NOW. Generate absolutely NO speech - the Assistant already announced the transfer.
-
-CRITICAL: Your entire response must be ONLY the tool call. No text, no acknowledgment, no empathy - complete silence.""",
+                "You are Aizellee, handling a claims call during business hours.",
+                "The caller has been connected to the claims team. Stay silent unless they speak to you.",
                 SECURITY_INSTRUCTIONS,
             )
         else:
@@ -97,15 +96,82 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
 
     async def on_enter(self) -> None:
         """Called when this agent becomes active - start the claims flow."""
+        userdata: CallerInfo = self.session.userdata
+
         if self._is_business_hours:
-            # Silently call the transfer tool - Assistant already announced the transfer
-            await self.session.generate_reply(
-                instructions="Call transfer_to_claims NOW. Generate NO speech - stay completely silent. The Assistant already announced the transfer to the caller."
-            )
+            # Check if speech was already delivered by Assistant
+            if getattr(userdata, "_handoff_speech_delivered", False):
+                # SILENT - Assistant already spoke the empathy + transfer message
+                # Just reset the flag and execute transfer without speaking
+                userdata._handoff_speech_delivered = False
+                await self._execute_claims_transfer_silent()
+            else:
+                # Fallback for direct entry (not via handoff)
+                await self._execute_claims_transfer()
         else:
+            # After-hours: LLM handles carrier lookup
             await self.session.generate_reply(
                 instructions="Say ONLY: 'Our office is closed, but I can help you reach your carrier's 24/7 claims line. Do you know which insurance carrier you're with?' Do NOT say empathy or ask if they're okay - that was already handled by the receptionist."
             )
+
+    async def _execute_claims_transfer(self) -> None:
+        """Execute the claims transfer directly without LLM generation.
+
+        This method speaks the COMPLETE transfer message (empathy + hold) and
+        performs the transfer. Using direct execution avoids unreliable LLM
+        instruction following and prevents duplicate messages.
+        """
+        # Access the session's userdata via the session context
+        session: AgentSession = self.session
+        userdata: CallerInfo = session.userdata
+
+        # Set the call intent
+        userdata.call_intent = CallIntent.CLAIMS
+
+        # Log the transfer attempt
+        caller_name = userdata.name
+        caller_phone = userdata.phone_number
+        logger.info(
+            f"[MOCK TRANSFER] Executing claims transfer directly: "
+            f"name={mask_name(caller_name) if caller_name else 'unknown'}, "
+            f"phone={mask_phone(caller_phone) if caller_phone else 'unknown'}"
+        )
+
+        # Speak the hold message only - Assistant already expressed empathy and
+        # mentioned connecting to claims team
+        await session.say(
+            f"Please stay on the line. {HOLD_MESSAGE}",
+            allow_interruptions=False,
+        )
+
+        # TODO (Needs Client Input): What extension(s) handle claims during business hours?
+        # For now, this is a placeholder that logs the transfer attempt.
+        # In production, this would initiate actual SIP transfer.
+        #
+        # When implemented, call:
+        #   job_ctx = get_job_context()
+        #   await job_ctx.transfer_sip_participant(participant, f"tel:{claims_ext}")
+        # The session will end automatically after a cold transfer.
+
+    async def _execute_claims_transfer_silent(self) -> None:
+        """Execute transfer WITHOUT speaking - speech already delivered by Assistant."""
+        session: AgentSession = self.session
+        userdata: CallerInfo = session.userdata
+
+        # Set the call intent
+        userdata.call_intent = CallIntent.CLAIMS
+
+        # Log the transfer attempt
+        caller_name = userdata.name
+        caller_phone = userdata.phone_number
+        logger.info(
+            f"[MOCK TRANSFER] Executing claims transfer silently (speech already delivered): "
+            f"name={mask_name(caller_name) if caller_name else 'unknown'}, "
+            f"phone={mask_phone(caller_phone) if caller_phone else 'unknown'}"
+        )
+
+        # NO speech here - Assistant already spoke the empathy + transfer message
+        # TODO: Actual SIP transfer when implemented
 
     @function_tool
     async def record_carrier_name(
@@ -148,10 +214,12 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
         self,
         context: RunContext[CallerInfo],
     ) -> None:
-        """Transfer the caller to the claims department.
+        """Transfer the caller to the claims department (fallback tool).
 
-        Call this during business hours to connect the caller with the claims team.
-        The Assistant already announced the transfer - this tool executes silently.
+        NOTE: During business hours, the transfer is executed directly via
+        _execute_claims_transfer() in on_enter() without LLM involvement.
+        This tool exists as a fallback if the LLM needs to initiate a transfer
+        during the conversation (e.g., if caller changes their mind).
 
         Returns None to signal the LLM to be silent after the transfer.
         """
@@ -161,13 +229,16 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
         caller_name = context.userdata.name
         caller_phone = context.userdata.phone_number
         logger.info(
-            f"[MOCK TRANSFER] Transferring claims call: "
+            f"[MOCK TRANSFER] Transferring claims call (via tool): "
             f"name={mask_name(caller_name) if caller_name else 'unknown'}, "
             f"phone={mask_phone(caller_phone) if caller_phone else 'unknown'}"
         )
 
-        # No speech here - Assistant already said:
-        # "I'm so sorry to hear about that. Let me connect you with our claims team now, please stay on the line."
+        # Speak the transfer message
+        await context.session.say(
+            f"I'm connecting you with our claims team now. {HOLD_MESSAGE}",
+            allow_interruptions=False,
+        )
 
         # TODO (Needs Client Input): What extension(s) handle claims during business hours?
         # For now, this is a placeholder that logs the transfer attempt.
