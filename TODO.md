@@ -2,6 +2,19 @@
 
 ## Completed
 
+### LiveKit Best Practices Upgrade (Completed 2026-02-11)
+- [x] **SDK upgrade**: livekit-agents 1.3.10 → 1.4.1
+- [x] **FallbackAdapters**: Added STT (AssemblyAI→Deepgram), LLM (GPT-4.1→GPT-4.1-mini), TTS (primary→fallback voice)
+- [x] **chat_ctx preservation**: All handoffs now pass `chat_ctx=self.session.chat_ctx.copy(exclude_config_update=True)`
+- [x] **Handoff tuple pattern**: Certificate, mortgagee, after-hours use LLM-spoken transition messages
+- [x] **EndCallTool**: AfterHoursAgent uses EndCallTool instead of manual room deletion
+- [x] **False interruption handling**: Added `false_interruption_timeout=2.0` and `resume_false_interruption=True`
+- [x] **Session error handling**: Added `@session.on("error")` with recoverable/fatal classification
+- [x] **Observability events**: Added `user_input_transcribed` and `conversation_item_added` event handlers
+- [x] **Reconnection handlers**: Added `reconnecting`, `reconnected`, `disconnected` event handlers
+- [x] **Latency tuning**: Updated endpointing delays (0.2s/1.0s) and interruption duration (0.2s)
+- [x] **AssemblyAI STT tuning**: Updated confidence threshold (0.45), silence threshold (250ms), added max_turn_silence (1000ms)
+
 ### Conversation Quality & After-Hours Fixes (Completed 2026-01-15)
 - [x] **Fixed import bug**: Changed `from src.utils` to `from utils` in `src/models.py:268` (caused `ModuleNotFoundError` in `route_call_after_hours`)
 - [x] **Upgraded LLM model**: Changed from `gpt-4.1-mini` to `gpt-4.1` in `src/main.py:153` for better instruction following
@@ -375,4 +388,4 @@ See `docs/REVIEW_AUDIT_REPORT.md` for the full multi-agent analysis including:
 
 ---
 
-*Last updated: 2026-01-15 (Conversation quality fixes, LLM upgrade to gpt-4.1, after-hours call termination)*
+*Last updated: 2026-02-11 (LiveKit best practices upgrade - SDK 1.4.1, FallbackAdapters, chat_ctx, observability)*

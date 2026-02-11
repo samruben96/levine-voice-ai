@@ -44,12 +44,14 @@ class MortgageeCertificateAgent(Agent):
     which type from context and routes to the appropriate flow.
     """
 
-    def __init__(self, request_type: str = "unknown") -> None:
+    def __init__(self, request_type: str = "unknown", chat_ctx=None) -> None:
         """Initialize MortgageeCertificateAgent.
 
         Args:
             request_type: Either "certificate", "mortgagee", or "unknown".
                          Used to customize initial response.
+            chat_ctx: Optional chat context from the parent agent handoff.
+                     Preserves conversation history across agent transitions.
         """
         self._request_type = request_type
         super().__init__(
@@ -80,6 +82,7 @@ class MortgageeCertificateAgent(Agent):
 - Provide email addresses clearly""",
                 SECURITY_INSTRUCTIONS,
             ),
+            chat_ctx=chat_ctx,
         )
 
     async def on_enter(self) -> None:

@@ -2,7 +2,8 @@
 
 **Project**: Harry Levine Insurance Voice Agent
 **Audit Date**: 2026-01-15
-**LiveKit Agents SDK Version**: Assumed 1.3.x (based on patterns used)
+**LiveKit Agents SDK Version**: 1.4.1 (upgraded from 1.3.x)
+**Last Updated**: 2026-02-11 (Best Practices Implementation)
 **Auditor**: Claude Opus 4.5
 
 ---
@@ -18,11 +19,11 @@ This audit evaluates the Harry Levine Insurance Voice Agent codebase against Liv
 | Connection Lifecycle | A | Excellent |
 | VoicePipelineAgent Configuration | A | Excellent |
 | Function Tools | A- | Good |
-| Handoff Patterns | B+ | Good |
+| Handoff Patterns | A | Excellent (chat_ctx + tuple pattern) |
 | Session State Management | A | Excellent |
 | Resource Cleanup | B | Satisfactory |
-| Error Handling | B- | Needs Improvement |
-| Reconnection Handling | C | Missing |
+| Error Handling | A- | Good (session error events added) |
+| Reconnection Handling | A | Excellent (event handlers added) |
 | Timeout Configuration | C+ | Basic |
 
 ---
@@ -74,26 +75,34 @@ The AgentSession is configured with comprehensive options:
 
 ```python
 session = AgentSession[CallerInfo](
-    stt=inference.STT(
-        model="assemblyai/universal-streaming",
-        language="en",
-        extra_kwargs={
-            "end_of_turn_confidence_threshold": 0.5,
-            "min_end_of_turn_silence_when_confident": 300,
-        },
-    ),
-    llm=inference.LLM(model="openai/gpt-4.1-mini"),
-    tts=inference.TTS(
-        model="cartesia/sonic-3",
-        voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
-        extra_kwargs={"speed": 0.85},
-    ),
+    stt=STTFallbackAdapter([
+        inference.STT(
+            model="assemblyai/universal-streaming",
+            language="en",
+            extra_kwargs={
+                "end_of_turn_confidence_threshold": 0.45,
+                "min_end_of_turn_silence_when_confident": 250,
+                "max_turn_silence": 1000,
+            },
+        ),
+        inference.STT(model="deepgram/nova-3", language="en"),
+    ]),
+    llm=LLMFallbackAdapter([
+        inference.LLM(model="openai/gpt-4.1"),
+        inference.LLM(model="openai/gpt-4.1-mini"),
+    ]),
+    tts=TTSFallbackAdapter([
+        inference.TTS(model="cartesia/sonic-3", voice="9626c31c-..."),
+        inference.TTS(model="cartesia/sonic-3", voice="694f9389-..."),
+    ]),
     turn_detection=MultilingualModel(),
     vad=ctx.proc.userdata["vad"],
     preemptive_generation=True,
-    min_endpointing_delay=0.3,
-    max_endpointing_delay=1.5,
-    min_interruption_duration=0.3,
+    min_endpointing_delay=0.2,
+    max_endpointing_delay=1.0,
+    min_interruption_duration=0.2,
+    false_interruption_timeout=2.0,
+    resume_false_interruption=True,
     userdata=caller_info,
 )
 ```
@@ -105,6 +114,8 @@ session = AgentSession[CallerInfo](
 - Latency parameters tuned for responsiveness
 - `preemptive_generation=True` for reduced response latency
 - AssemblyAI endpointing configured via `extra_kwargs`
+- Uses FallbackAdapter for STT, LLM, and TTS resilience
+- false_interruption_timeout prevents background noise from interrupting
 
 **Best Practice Alignment**:
 - Per LiveKit docs: "VAD and turn detection are used to determine when the user is speaking and when the agent should respond" - properly implemented
@@ -212,25 +223,9 @@ Per LiveKit docs: "Shutdown hooks should complete within a short amount of time.
 
 ### What We Found
 
-**Status**: NOT IMPLEMENTED
+**Status**: IMPLEMENTED (2026-02-11)
 
-The codebase does not include explicit reconnection handling. There are no event listeners for:
-- `Reconnecting` event
-- `Reconnected` event
-- `Disconnected` event
-
-**Per LiveKit docs**: "When this happens, LiveKit attempts to resume the connection automatically. It reconnects to the signaling WebSocket and initiates an ICE restart for the WebRTC connection."
-
-While LiveKit handles reconnection automatically at the transport layer, the agent code should:
-1. Monitor connection state changes
-2. Log reconnection events for observability
-3. Potentially inform the user during extended reconnection attempts
-
-### Recommendation
-
-**Priority**: Medium
-
-Add reconnection event handling in `my_agent()`:
+Reconnection events are now properly handled with logging:
 
 ```python
 @ctx.room.on("reconnecting")
@@ -245,6 +240,17 @@ def on_reconnected():
 def on_disconnected():
     logger.info("Disconnected from room")
 ```
+
+**Per LiveKit docs**: "When this happens, LiveKit attempts to resume the connection automatically. It reconnects to the signaling WebSocket and initiates an ICE restart for the WebRTC connection."
+
+The agent code now:
+1. Monitors connection state changes
+2. Logs reconnection events for observability
+3. Provides visibility into connection issues
+
+### Recommendation
+
+**Status**: RESOLVED - Properly implemented
 
 ---
 
@@ -384,40 +390,33 @@ class ClaimsAgent(Agent):
         )
 ```
 
-**Context preservation NOT used** - each sub-agent starts with fresh context. This appears intentional for this use case since sub-agents have specialized instructions.
+**Context preservation IMPLEMENTED via chat_ctx** - conversation history is now passed to sub-agents using `chat_ctx=self.session.chat_ctx.copy(exclude_config_update=True)`.
 
-#### Issues Found
+#### Issues Found - NOW RESOLVED (2026-02-11)
 
-1. **Missing `await` on `generate_reply` in on_enter**:
+1. **Missing `await` on `generate_reply` in on_enter** - FIXED:
 
-   Per LiveKit docs example:
+   All `on_enter` methods now properly await `generate_reply()`:
    ```python
    async def on_enter(self) -> None:
        await self.session.generate_reply(instructions="...")
    ```
 
-   Current code (missing await):
+   Fixed in all agents:
+   - `src/agents/assistant.py`
+   - `src/agents/claims.py`
+   - `src/agents/after_hours.py`
+   - `src/agents/mortgagee.py`
+
+2. **Context not passed to sub-agents** - RESOLVED:
+
+   Sub-agents now receive conversation context:
    ```python
-   async def on_enter(self) -> None:
-       self.session.generate_reply(...)  # Missing await!
+   return (ClaimsAgent(), "I can help you with your claim request.")
+   # Called with: chat_ctx=self.session.chat_ctx.copy(exclude_config_update=True)
    ```
 
-   This is present in ALL agent `on_enter` methods:
-   - `src/agents/assistant.py` line 208
-   - `src/agents/claims.py` lines 106, 110
-   - `src/agents/after_hours.py` line 88
-   - `src/agents/mortgagee.py` lines 102, 107, 112
-
-2. **Context not passed to sub-agents**:
-
-   Sub-agents are created without `chat_ctx`:
-   ```python
-   return (ClaimsAgent(), "")
-   ```
-
-   Per LiveKit docs best practice: "To include the prior conversation, set the chat_ctx parameter in the Agent constructor."
-
-   However, for this use case (specialized sub-agents with distinct instructions), fresh context may be intentional.
+   Per LiveKit docs best practice: "To include the prior conversation, set the chat_ctx parameter in the Agent constructor." - Now implemented.
 
 ### Recommendation
 
@@ -505,10 +504,20 @@ except Exception as e:
     raise
 ```
 
+**Now includes session error events (2026-02-11)**:
+
+```python
+@session.on("error")
+def _on_error(ev):
+    if ev.recoverable:
+        logger.warning(f"Recoverable session error: {ev.error}")
+    else:
+        logger.error(f"Fatal session error: {ev.error}")
+```
+
 **Issues**:
-- Broad `Exception` catch - could be more specific
-- Re-raises after logging but doesn't differentiate recoverable vs fatal errors
-- No error handling in individual tool functions
+- Broad `Exception` catch in initialization - could be more specific
+- No error handling in individual tool functions (uses string returns for validation errors)
 
 **In tool functions** (various files):
 - No `ToolError` usage for communicating errors back to LLM
@@ -603,15 +612,15 @@ The codebase correctly uses `say()` for scripted messages (transfers, bank calle
 
 ### Critical Issues (Fix Immediately)
 
-1. **Missing `await` on `generate_reply()` in all `on_enter()` methods**
+~~1. **Missing `await` on `generate_reply()` in all `on_enter()` methods**~~ - **RESOLVED (2026-02-11)**
    - Files: assistant.py, claims.py, after_hours.py, mortgagee.py
-   - Risk: Potential race conditions, unhandled errors
+   - All methods now properly await `generate_reply()`
 
 ### High Priority Issues
 
-2. **No reconnection event handling**
-   - Missing observability for connection drops
-   - Users won't be informed during reconnection attempts
+~~2. **No reconnection event handling**~~ - **RESOLVED (2026-02-11)**
+   - Reconnection events now monitored with logging
+   - `reconnecting`, `reconnected`, `disconnected` handlers added
 
 ### Medium Priority Issues
 
@@ -620,6 +629,7 @@ The codebase correctly uses `say()` for scripted messages (transfers, bank calle
 
 4. **Broad exception handling**
    - Consider more specific error types
+   - Session error events now implemented (recoverable vs fatal classification)
 
 5. **Tool return type documentation**
    - Add docstrings explaining handoff patterns
@@ -646,11 +656,11 @@ The codebase correctly uses `say()` for scripted messages (transfers, bank calle
 | Use typed AgentSession | PASS | `AgentSession[CallerInfo]` |
 | Configure RoomOptions | PASS | Noise cancellation configured |
 | Register shutdown callbacks | PARTIAL | Registered but after connect |
-| Handle reconnection events | FAIL | Not implemented |
+| Handle reconnection events | PASS | Event handlers added (2026-02-11) |
 | Use typed RunContext in tools | PASS | All tools properly typed |
 | Return None for silent completion | PASS | Correctly implemented |
 | Use tuple for handoffs | PASS | Correct pattern |
-| Await generate_reply in on_enter | FAIL | Missing in all agents |
+| Await generate_reply in on_enter | PASS | Fixed in all agents (2026-02-11) |
 | Use session.say() for scripted speech | PASS | Correctly used |
 | Configure latency parameters | PASS | Well-tuned values |
 | Use userdata dataclass | PASS | Excellent implementation |

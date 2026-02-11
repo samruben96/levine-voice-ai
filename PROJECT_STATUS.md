@@ -3,8 +3,8 @@
 **Harry Levine Insurance Voice Agent**
 
 **Report Date:** 2026-01-13
-**Last Updated:** 2026-01-14 (Phase 7 Complete - Cold Start Fix)
-**Status:** Single-agent architecture with direct transfer tools and optimized bank caller handling
+**Last Updated:** 2026-02-11 (Phase 9 Complete - LiveKit Best Practices)
+**Status:** Single-agent architecture with LiveKit SDK 1.4.1, FallbackAdapters, and best practices
 **Reviewed By:** Multi-Agent Analysis Session (LiveKit Expert, Code Reviewer, Prompt Engineer)
 
 ---
@@ -895,6 +895,60 @@ async def route_to_bank(self, session: Session) -> None:
 - **Phase 2:** Implement the first agent (e.g., ClaimsAgent) and update the main agent to use it.
 - **Phase 3:** Add additional agents and update the main agent to support handoff.
 - **Phase 4:** Integrate all agents and perform end-to-end testing.
+
+---
+
+## 15. Phase 9: LiveKit Best Practices Upgrade (COMPLETED)
+
+**Completed:** 2026-02-11
+**SDK Version:** 1.3.10 → 1.4.1
+**Scope:** Phases 1, 2, and 5 from LiveKit best practices plan
+
+### 15.1 Overview
+
+Upgraded the voice agent to align with LiveKit Agents SDK best practices based on a comprehensive audit (docs/LIVEKIT_USAGE_AUDIT.md). The upgrade covers SDK version, provider resilience, handoff patterns, session error handling, and observability.
+
+### 15.2 Changes Implemented
+
+| Category | Change | Files |
+|----------|--------|-------|
+| SDK Upgrade | livekit-agents 1.3.10 → 1.4.1 | pyproject.toml |
+| STT Resilience | FallbackAdapter: AssemblyAI → Deepgram | src/main.py |
+| LLM Resilience | FallbackAdapter: GPT-4.1 → GPT-4.1-mini | src/main.py |
+| TTS Resilience | FallbackAdapter: Primary → alternate Cartesia voice | src/main.py |
+| Handoff Context | chat_ctx with exclude_config_update=True | src/agents/assistant.py |
+| Handoff UX | Tuple pattern for spoken transitions | src/agents/assistant.py |
+| Call Termination | EndCallTool replaces manual hangup | src/agents/after_hours.py |
+| False Interruption | false_interruption_timeout=2.0s + resume | src/main.py |
+| Error Handling | Session error events (recoverable/fatal) | src/main.py |
+| Observability | user_input_transcribed, conversation_item_added | src/main.py |
+| Connection | Reconnection event handlers | src/main.py |
+| Latency | Updated endpointing/interruption params | src/main.py |
+
+### 15.3 Audit Items Resolved
+
+Items from docs/LIVEKIT_USAGE_AUDIT.md that are now resolved:
+
+| Audit Finding | Previous Status | New Status |
+|--------------|-----------------|------------|
+| Missing reconnection handling | NOT IMPLEMENTED | IMPLEMENTED |
+| Broad exception handling | B- | A- (session error events) |
+| Context not passed to sub-agents | Not used | IMPLEMENTED (chat_ctx) |
+| Handoff empty transition message | Undocumented | Proper tuple pattern |
+| Missing FallbackAdapter | Not used | STT/LLM/TTS all wrapped |
+
+### 15.4 Items Intentionally Skipped
+
+| Item | Reason |
+|------|--------|
+| LLMStream.collect() | No background LLM tasks in codebase |
+| turn_detection="lk" shorthand | Does not exist in LiveKit docs; MultilingualModel() is correct |
+
+### 15.5 Verification
+
+- Unit tests: 103/103 passing
+- Smoke tests: 7/7 passing
+- Lint: Clean on all modified files
 
 ---
 

@@ -26,12 +26,14 @@ The Harry Levine Insurance Voice Agent is a voice AI system built on the LiveKit
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| Speech-to-Text (STT) | AssemblyAI | Converts caller speech to text |
-| Large Language Model (LLM) | GPT-4.1-mini | Processes intent and generates responses |
-| Text-to-Speech (TTS) | Cartesia Sonic-3 | Converts agent responses to speech |
+| Speech-to-Text (STT) | AssemblyAI (fallback: Deepgram) | Converts caller speech to text |
+| Large Language Model (LLM) | GPT-4.1 (fallback: GPT-4.1-mini) | Processes intent and generates responses |
+| Text-to-Speech (TTS) | Cartesia Sonic-3 (fallback: alternate voice) | Converts agent responses to speech |
 | Voice Activity Detection (VAD) | Silero | Detects when caller is speaking |
 | Turn Detection | LiveKit Multilingual | Manages conversation turn-taking |
 | Noise Cancellation | LiveKit BVC | Removes background noise (telephony-optimized) |
+| Fallback Adapters | LiveKit FallbackAdapter | Automatic provider failover for STT/LLM/TTS |
+| False Interruption | 2.0s timeout + resume | Prevents background noise from interrupting agent |
 
 ### Key Features
 
@@ -41,6 +43,9 @@ The Harry Levine Insurance Voice Agent is a voice AI system built on the LiveKit
 - **Restricted transfers**: Certain staff require live-person handling
 - **PII masking**: Caller information masked in logs
 - **No double-asking**: Callers provide information once (fixed in Phase 5)
+- **FallbackAdapter resilience**: STT, LLM, and TTS each have automatic failover providers
+- **Context-preserving handoffs**: Conversation history passed to sub-agents via `chat_ctx`
+- **False interruption handling**: Background noise doesn't interrupt agent speech
 
 ---
 
@@ -468,10 +473,55 @@ try:
         room_options=room_options,
     )
     await ctx.connect()
-    await session.say("Thank you for calling...")
 except Exception as e:
     logger.exception(f"Session initialization failed: {e}")
     raise
+```
+
+### Session Error Events
+
+The agent monitors session errors with automatic classification:
+
+```python
+@session.on("error")
+def _on_error(ev):
+    if ev.recoverable:
+        logger.warning(f"Recoverable session error: {ev.error}")
+    else:
+        logger.error(f"Fatal session error: {ev.error}")
+```
+
+### Connection Resilience
+
+Reconnection events are monitored for observability:
+
+```python
+@ctx.room.on("reconnecting")
+def on_reconnecting():
+    logger.warning("Connection lost, attempting to reconnect...")
+
+@ctx.room.on("reconnected")
+def on_reconnected():
+    logger.info("Successfully reconnected to room")
+
+@ctx.room.on("disconnected")
+def on_disconnected():
+    logger.info("Disconnected from room")
+```
+
+### Observability
+
+Session events provide visibility into conversation flow:
+
+```python
+@session.on("user_input_transcribed")
+def _on_user_input(ev):
+    logger.info(f"User said: {ev.transcript}")
+
+@session.on("conversation_item_added")
+def _on_conversation_item(ev):
+    if ev.item.type == "function_call":
+        logger.info(f"Tool called: {ev.item.name}")
 ```
 
 ### Environment Validation
@@ -496,6 +546,7 @@ def validate_environment() -> None:
 | VA ring group unavailable | Route to Account Executive |
 | Restricted transfer requested | Offer to take message |
 | Unknown intent | Route to general queue |
+| STT/LLM/TTS provider failure | Automatic failover to backup provider via FallbackAdapter |
 
 ### Logging
 
@@ -618,4 +669,4 @@ docs/
 
 ---
 
-*Last updated: 2026-01-14 (Phase 5: Single-Agent Architecture)*
+*Last updated: 2026-02-11 (LiveKit Best Practices Upgrade - SDK 1.4.1, FallbackAdapters, chat_ctx)*

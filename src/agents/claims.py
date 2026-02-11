@@ -44,12 +44,14 @@ class ClaimsAgent(Agent):
     5. Offer callback option
     """
 
-    def __init__(self, is_business_hours: bool | None = None) -> None:
+    def __init__(self, is_business_hours: bool | None = None, chat_ctx=None) -> None:
         """Initialize ClaimsAgent.
 
         Args:
             is_business_hours: Override for business hours check (for testing).
                              If None, uses actual time check.
+            chat_ctx: Optional chat context from the parent agent handoff.
+                     Preserves conversation history across agent transitions.
         """
         # Determine if office is open (allows override for testing)
         self._is_business_hours = (
@@ -92,7 +94,7 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
                 SECURITY_INSTRUCTIONS,
             )
 
-        super().__init__(instructions=instructions)
+        super().__init__(instructions=instructions, chat_ctx=chat_ctx)
 
     async def on_enter(self) -> None:
         """Called when this agent becomes active - start the claims flow."""

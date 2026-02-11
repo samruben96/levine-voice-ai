@@ -29,7 +29,7 @@ This project optimizes three main components:
 
 ### Silero VAD (Voice Activity Detection)
 
-Located in `src/agent.py` in the `prewarm()` function:
+Located in `src/main.py` in the `prewarm()` function:
 
 ```python
 proc.userdata["vad"] = silero.VAD.load(
@@ -41,29 +41,37 @@ proc.userdata["vad"] = silero.VAD.load(
 
 ### AssemblyAI STT (Speech-to-Text)
 
-Located in `src/agent.py` in the `AgentSession` configuration:
+Located in `src/main.py` in the `AgentSession` configuration:
 
 ```python
-stt=inference.STT(
-    model="assemblyai/universal-streaming",
-    language="en",
-    extra_kwargs={
-        "end_of_turn_confidence_threshold": 0.5,
-        "min_end_of_turn_silence_when_confident": 300,
-    },
+stt=STTFallbackAdapter(
+    [
+        inference.STT(
+            model="assemblyai/universal-streaming",
+            language="en",
+            extra_kwargs={
+                "end_of_turn_confidence_threshold": 0.45,
+                "min_end_of_turn_silence_when_confident": 250,
+                "max_turn_silence": 1000,
+            },
+        ),
+        inference.STT(model="deepgram/nova-3", language="en"),
+    ]
 ),
 ```
 
 ### AgentSession Parameters
 
-Located in `src/agent.py` in the `AgentSession` configuration:
+Located in `src/main.py` in the `AgentSession` configuration:
 
 ```python
 session = AgentSession[CallerInfo](
-    # ... STT, LLM, TTS config ...
-    min_endpointing_delay=0.3,       # Reduced from 0.5s default
-    max_endpointing_delay=1.5,       # Reduced from 3.0s default
-    min_interruption_duration=0.3,   # Reduced from 0.5s default
+    # ... STT, LLM, TTS with FallbackAdapters ...
+    min_endpointing_delay=0.2,       # Reduced from 0.5s default
+    max_endpointing_delay=1.0,       # Reduced from 3.0s default
+    min_interruption_duration=0.2,   # Reduced from 0.5s default
+    false_interruption_timeout=2.0,  # Prevents background noise interruptions
+    resume_false_interruption=True,  # Resumes speech after false interruption
 )
 ```
 
@@ -83,16 +91,19 @@ session = AgentSession[CallerInfo](
 
 | Parameter | Default | Current | Description |
 |-----------|---------|---------|-------------|
-| `end_of_turn_confidence_threshold` | 0.8 | 0.5 | Confidence level required to end a turn. Lower values end turns faster. |
-| `min_end_of_turn_silence_when_confident` | 500ms | 300ms | Minimum silence (in milliseconds) before ending turn when confidence threshold is met. |
+| `end_of_turn_confidence_threshold` | 0.8 | 0.45 | Confidence level required to end a turn. Lower values end turns faster. |
+| `min_end_of_turn_silence_when_confident` | 500ms | 250ms | Minimum silence (in milliseconds) before ending turn when confidence threshold is met. |
+| `max_turn_silence` | - | 1000ms | Safety net: maximum silence duration before forcing turn end. |
 
 ### AgentSession Parameters
 
 | Parameter | Default | Current | Description |
 |-----------|---------|---------|-------------|
-| `min_endpointing_delay` | 0.5s | 0.3s | Minimum time after VAD detects silence before the turn is considered complete. |
-| `max_endpointing_delay` | 3.0s | 1.5s | Maximum time to wait for end-of-turn, even if VAD has not detected silence. Prevents infinite waiting. |
-| `min_interruption_duration` | 0.5s | 0.3s | Minimum duration of user speech required to interrupt the agent. Lower values make interruptions more responsive. |
+| `min_endpointing_delay` | 0.5s | 0.2s | Minimum time after VAD detects silence before the turn is considered complete. |
+| `max_endpointing_delay` | 3.0s | 1.0s | Maximum time to wait for end-of-turn, even if VAD has not detected silence. Prevents infinite waiting. |
+| `min_interruption_duration` | 0.5s | 0.2s | Minimum duration of user speech required to interrupt the agent. Lower values make interruptions more responsive. |
+| `false_interruption_timeout` | - | 2.0s | Duration to wait before classifying an interruption as false (background noise). |
+| `resume_false_interruption` | false | true | Whether to resume agent speech after a false interruption is detected. |
 
 ---
 
@@ -312,16 +323,26 @@ When tuning latency parameters:
 
 ### Cartesia TTS Voice
 
-The agent uses Cartesia Sonic-3 for text-to-speech with a specific voice ID configured in `src/agent.py`:
+The agent uses Cartesia Sonic-3 for text-to-speech with a specific voice ID configured in `src/main.py`:
 
 ```python
-tts=inference.TTS(
-    model="cartesia/sonic-3",
-    voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"  # Default LiveKit voice
-)
+tts=TTSFallbackAdapter(
+    [
+        inference.TTS(
+            model="cartesia/sonic-3",
+            voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
+        ),
+        inference.TTS(
+            model="cartesia/sonic-3",
+            voice="694f9389-aac1-45b6-b726-9d9369183238",
+        ),
+    ]
+),
 ```
 
-**Voice ID:** `9626c31c-bec5-4cca-baa8-f8ba9e84c8bc`
+**Voice ID:** `9626c31c-bec5-4cca-baa8-f8ba9e84c8bc` (primary)
+
+A fallback voice (`694f9389-aac1-45b6-b726-9d9369183238`) is configured via TTSFallbackAdapter in case the primary voice is unavailable.
 
 This is the default Cartesia voice from the LiveKit examples. To customize the agent's voice:
 

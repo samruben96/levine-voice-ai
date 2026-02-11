@@ -340,14 +340,17 @@ lk agent rollback
 
 ## Voice Pipeline
 
-The agent uses a voice AI pipeline with:
+The agent uses a voice AI pipeline with automatic fallback for resilience:
 
-- **STT (Speech-to-Text)**: AssemblyAI Universal Streaming
-- **LLM**: OpenAI GPT-4.1
-- **TTS (Text-to-Speech)**: Cartesia Sonic-3
+- **STT (Speech-to-Text)**: AssemblyAI Universal Streaming (fallback: Deepgram Nova-3)
+- **LLM**: OpenAI GPT-4.1 (fallback: GPT-4.1-mini)
+- **TTS (Text-to-Speech)**: Cartesia Sonic-3 (fallback: alternate Cartesia voice)
 - **Turn Detection**: LiveKit Multilingual Turn Detector
 - **VAD**: Silero VAD
 - **Noise Cancellation**: LiveKit BVC (Background Voice Cancellation)
+- **False Interruption Handling**: 2.0s timeout with automatic resume
+- **Session Error Handling**: Recoverable vs. fatal error classification
+- **Connection Resilience**: Automatic reconnection with event logging
 
 ## Coding Agents and MCP
 
