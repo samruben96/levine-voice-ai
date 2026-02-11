@@ -423,18 +423,19 @@ async def test_claims_during_business_hours_initiates_transfer() -> None:
     """
     # Explicitly set business hours context
     business_hours_context = (
-        "CURRENT TIME: 2:30 PM ET, Wednesday\n"
-        "OFFICE STATUS: Open (closes at 5 PM)"
+        "CURRENT TIME: 2:30 PM ET, Wednesday\nOFFICE STATUS: Open (closes at 5 PM)"
     )
 
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
     ):
-        await session.start(Assistant(
-            business_hours_context=business_hours_context,
-            is_after_hours=False,
-        ))
+        await session.start(
+            Assistant(
+                business_hours_context=business_hours_context,
+                is_after_hours=False,
+            )
+        )
 
         # Single-turn test: claim request triggers empathy + transfer preparation
         result = await session.run(

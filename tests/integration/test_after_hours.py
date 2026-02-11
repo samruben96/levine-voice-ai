@@ -380,7 +380,7 @@ async def test_after_hours_certificate_gets_email() -> None:
 
                 The response should either:
                 - Provide an email for certificate requests
-                - Mention self-service options
+                - Offer to help with anything else
                 - Offer to help when office reopens
 
                 Certificate requests can often be handled via email.

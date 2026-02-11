@@ -17,7 +17,6 @@ from models import CallerInfo, CallIntent, InsuranceType
 from staff_directory import (
     find_agent_by_alpha,
     get_alpha_route_key,
-    get_ring_group,
 )
 from utils import format_email_for_speech
 
@@ -33,9 +32,9 @@ class MortgageeCertificateAgent(Agent):
     - Proof of insurance for contractors/vendors
     - Loss payee information
 
-    Certificate Flow (COMMERCIAL ONLY):
-    - For ALL certificate requests (new or existing): Provide email (Certificate@hlinsure.com)
-      and self-service app option. No transfer needed.
+    Certificate Flow:
+    - NEW certificate: Provide email (Certificate@hlinsure.com)
+    - EXISTING certificate question: Transfer to Account Executive via alpha-split
 
     Mortgagee Flow:
     1. Inform about email requirement (info@hlinsure.com)
@@ -56,20 +55,16 @@ class MortgageeCertificateAgent(Agent):
         super().__init__(
             instructions=compose_instructions(
                 "You are Aizellee, helping a caller with a certificate of insurance or mortgagee/lienholder request.",
-                "GOAL: Provide email and self-service options for certificate/mortgagee requests. No transfer needed.",
+                "GOAL: Handle certificate and mortgagee requests efficiently.",
                 """KEY INFORMATION:
 - Certificates are for COMMERCIAL insurance only
 - Certificate requests email: Certificate@hlinsure.com
-- Mortgagee requests email: info@hlinsure.com
-- Self-service app: Harry Levine Insurance app (24/7 certificate issuance)""",
+- Mortgagee requests email: info@hlinsure.com""",
                 """CERTIFICATE REQUEST FLOW:
-For ALL certificate requests (new or existing):
-1. Provide email: Certificate@hlinsure.com
-2. Offer self-service app option (Harry Levine Insurance app for 24/7 issuance)
-3. Ask if they need help with login credentials
-4. No transfer needed for any certificate request
-
-Use check_certificate_type or handle_new_certificate tool to provide this info.""",
+1. First ask: "Is this for a new certificate request, or do you have a question about an existing certificate?"
+2. NEW CERTIFICATE: Use check_certificate_type tool with is_new_certificate=True to provide the email (Certificate@hlinsure.com)
+3. EXISTING CERTIFICATE: Say "No problem, let me get you over to an agent that can help you with that."
+   Then collect insurance type and identifier using record_caller_info, and transfer using transfer_existing_certificate.""",
                 """MORTGAGEE/LIENHOLDER REQUEST FLOW:
 1. INFORM about email requirement:
    "Got it. HLI requires all mortgagee requests to be sent in writing to info@hlinsure.com."
@@ -80,10 +75,9 @@ Use check_certificate_type or handle_new_certificate tool to provide this info."
                 """RULES:
 - Be helpful and informative
 - Certificates are commercial only - no need to ask business/personal
-- For ALL certificate requests: provide email + self-service app info
-- No transfer needed for certificate requests
-- Provide email addresses clearly
-- Encourage self-service option""",
+- For NEW certificate requests: provide email only
+- For EXISTING certificate questions: transfer to Account Executive
+- Provide email addresses clearly""",
                 SECURITY_INSTRUCTIONS,
             ),
         )
@@ -100,7 +94,7 @@ Use check_certificate_type or handle_new_certificate tool to provide this info."
             # Skip the "I can help you with that" acknowledgment - go straight to info
             if self._request_type == "certificate":
                 await self.session.generate_reply(
-                    instructions="Use the handle_new_certificate tool immediately to provide the email (Certificate@hlinsure.com) and self-service app option. Do NOT say 'I can help you with that' - just provide the information directly."
+                    instructions="Ask the caller: 'Is this for a new certificate request, or do you have a question about an existing certificate?' Based on their answer, use check_certificate_type with is_new_certificate=True for new requests, or for existing certificate questions say 'No problem, let me get you over to an agent that can help you with that.' and collect their info for transfer."
                 )
             elif self._request_type == "mortgagee":
                 await self.session.generate_reply(
@@ -114,9 +108,8 @@ Use check_certificate_type or handle_new_certificate tool to provide this info."
         else:
             # Original flow - include acknowledgment
             if self._request_type == "certificate":
-                # For certificates, acknowledge and provide email + self-service info directly
                 await self.session.generate_reply(
-                    instructions="Acknowledge the caller's certificate request briefly, then use the handle_new_certificate tool to provide the email (Certificate@hlinsure.com) and self-service app option. Example: 'I can help you with that.'"
+                    instructions="Acknowledge the caller's certificate request briefly, then ask: 'Is this for a new certificate request, or do you have a question about an existing certificate?' Based on their answer, use check_certificate_type with is_new_certificate=True for new requests, or for existing certificate questions say 'No problem, let me get you over to an agent that can help you with that.' and collect their info for transfer."
                 )
             elif self._request_type == "mortgagee":
                 # For mortgagee, acknowledge and provide email info
@@ -135,10 +128,10 @@ Use check_certificate_type or handle_new_certificate tool to provide this info."
         context: RunContext[CallerInfo],
         is_new_certificate: bool,
     ) -> str:
-        """Handle certificate request - provides email and self-service info for ALL certificate requests.
+        """Handle certificate request based on whether it's new or existing.
 
-        Call this when a caller mentions certificates. Both new and existing certificate
-        requests get the same response: email + self-service app info.
+        Call this when a caller has indicated whether they need a new certificate
+        or have a question about an existing one.
 
         Args:
             is_new_certificate: True if caller needs a NEW certificate issued,
@@ -146,37 +139,21 @@ Use check_certificate_type or handle_new_certificate tool to provide this info."
         """
         context.userdata.call_intent = CallIntent.CERTIFICATES
 
-        cert_type = "NEW" if is_new_certificate else "EXISTING"
-        logger.info(
-            f"Certificate request - {cert_type} certificate, providing email/self-service info"
-        )
-        cert_email = format_email_for_speech("Certificate@hlinsure.com")
-        return (
-            f"All certificates need to be requested in writing. You can email them to "
-            f"{cert_email} Or issue them 24/7 using the Harry Levine Insurance app. "
-            "Do you know your login information, or do you need us to resend it?"
-        )
-
-    @function_tool
-    async def handle_new_certificate(
-        self,
-        context: RunContext[CallerInfo],
-    ) -> str:
-        """Provide information for requesting a NEW certificate.
-
-        Call this when caller confirms they need a NEW certificate issued.
-        Provides the email address and self-service app option.
-        """
-        context.userdata.call_intent = CallIntent.CERTIFICATES
-        logger.info(
-            "Certificate request - NEW certificate, providing email/self-service info"
-        )
-        cert_email = format_email_for_speech("Certificate@hlinsure.com")
-        return (
-            f"All certificates need to be requested in writing. You can email them to "
-            f"{cert_email} Or issue them 24/7 using the Harry Levine Insurance app. "
-            "Do you know your login information, or do you need us to resend it?"
-        )
+        if is_new_certificate:
+            logger.info("Certificate request - NEW certificate, providing email info")
+            cert_email = format_email_for_speech("Certificate@hlinsure.com")
+            return (
+                f"You can email your certificate request to {cert_email} "
+                "Is there anything else I can help you with today?"
+            )
+        else:
+            logger.info(
+                "Certificate request - EXISTING certificate, transferring to AE"
+            )
+            return (
+                "No problem, let me get you over to an agent that can help you with that. "
+                "Is this for business or personal insurance?"
+            )
 
     @function_tool
     async def record_caller_info(
@@ -291,86 +268,4 @@ Use check_certificate_type or handle_new_certificate tool to provide this info."
         return (
             f"Got it. HLI requires all mortgagee and lienholder requests to be sent in writing to "
             f"{info_email} Is there anything else I can help you with today?"
-        )
-
-    @function_tool
-    async def check_login_status(
-        self,
-        context: RunContext[CallerInfo],
-        knows_login: bool,
-    ) -> str:
-        """Check if the caller knows their app login credentials.
-
-        Call this tool after asking if they know their login information.
-
-        Args:
-            knows_login: True if the caller knows their login, False if they need help
-        """
-        if knows_login:
-            logger.info("Certificate request - caller knows login, can self-service")
-            return (
-                "Great! You can log into the Harry Levine Insurance app to issue your certificate right away. "
-                "Is there anything else I can help you with today?"
-            )
-        else:
-            logger.info("Certificate request - caller needs login help")
-            return (
-                "No problem, I can help with that. Would you like me to have your login credentials resent to your email, "
-                "or would you prefer to speak with someone from our customer service team?"
-            )
-
-    @function_tool
-    async def collect_email_for_credentials(
-        self,
-        context: RunContext[CallerInfo],
-        email_address: str,
-    ) -> str:
-        """Collect the caller's email address to resend app credentials.
-
-        Call this tool when the caller wants their login credentials resent.
-
-        Args:
-            email_address: The email address to send credentials to
-        """
-        context.userdata.additional_notes = (
-            f"Resend app credentials to: {email_address}"
-        )
-        logger.info(
-            f"Certificate request - collecting email for credential resend: {email_address[:3]}***"
-        )
-        return (
-            f"Perfect, I'll have your login credentials sent to {email_address}. "
-            "You should receive them shortly. Once you're logged in, you'll be able to issue your own certificates "
-            "24/7 through the app. Is there anything else I can help you with today?"
-        )
-
-    @function_tool
-    async def transfer_for_login_help(
-        self,
-        context: RunContext[CallerInfo],
-    ) -> str:
-        """Transfer the caller to the VA ring group for login assistance.
-
-        Call this tool when the caller wants to speak with someone about their login.
-        This transfers to the customer service team (VA ring group).
-        """
-        context.userdata.additional_notes = "Needs help with app login credentials"
-
-        # Try VA ring group for login help
-        va_group = get_ring_group("VA")
-        if va_group:
-            logger.info(
-                f"[MOCK TRANSFER] Transferring for login help to VA ring group: {va_group['extensions']}"
-            )
-            return (
-                "I'm connecting you with our customer service team who can help you with your login. "
-                "Please hold for just a moment."
-            )
-
-        # Fallback message if no ring group configured
-        logger.info("Certificate request - no VA ring group available for login help")
-        return (
-            "I apologize, but our customer service team is currently unavailable. "
-            "Please email info@hlinsure.com and they'll help you reset your login credentials. "
-            "Is there anything else I can help you with?"
         )

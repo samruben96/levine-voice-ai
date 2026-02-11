@@ -13,6 +13,7 @@ from staff_directory import (
     get_agent_by_extension,
     get_agent_by_name,
     get_agents_by_department,
+    get_agents_by_name_prefix,
     get_alpha_route_key,
     get_available_agent_by_alpha,
     get_ring_group,
@@ -917,3 +918,53 @@ class TestGetAllPLSalesAgents:
         agents = get_all_pl_sales_agents()
         for agent in agents:
             assert agent["department"] == "PL-Sales Agent"
+
+
+class TestGetAgentsByNamePrefix:
+    """Tests for the get_agents_by_name_prefix disambiguation function."""
+
+    def test_rachel_returns_two_matches(self) -> None:
+        """'Rachel' should match both Rachel T. and Rachel Moreno."""
+        matches = get_agents_by_name_prefix("Rachel")
+        assert len(matches) == 2
+        names = {m["name"] for m in matches}
+        assert names == {"Rachel T.", "Rachel Moreno"}
+
+    def test_full_name_returns_exact_match_first(self) -> None:
+        """Full name should return exact match as the first result."""
+        matches = get_agents_by_name_prefix("Rachel Moreno")
+        assert len(matches) >= 1
+        # Exact match should be first due to pass ordering
+        assert matches[0]["name"] == "Rachel Moreno"
+
+    def test_unique_first_name_returns_one(self) -> None:
+        """Unique first name should return single match."""
+        matches = get_agents_by_name_prefix("Brad")
+        assert len(matches) == 1
+        assert matches[0]["name"] == "Brad"
+
+    def test_empty_string_returns_empty(self) -> None:
+        """Empty string should return no matches."""
+        assert get_agents_by_name_prefix("") == []
+
+    def test_nonexistent_name_returns_empty(self) -> None:
+        """Name not in directory should return no matches."""
+        assert get_agents_by_name_prefix("Zzzznonexistent") == []
+
+    def test_single_letter_returns_all_matching(self) -> None:
+        """Single letter should return all agents whose names start with it."""
+        matches = get_agents_by_name_prefix("A")
+        assert len(matches) >= 2  # At minimum Adriana, Al, Ann, Anamer
+
+    def test_case_insensitive(self) -> None:
+        """Name matching should be case-insensitive."""
+        matches = get_agents_by_name_prefix("rachel")
+        assert len(matches) == 2
+        names = {m["name"] for m in matches}
+        assert names == {"Rachel T.", "Rachel Moreno"}
+
+    def test_no_duplicates(self) -> None:
+        """Results should not contain duplicate entries."""
+        matches = get_agents_by_name_prefix("Rachel")
+        names = [m["name"] for m in matches]
+        assert len(names) == len(set(names))

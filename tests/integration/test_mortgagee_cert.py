@@ -52,7 +52,7 @@ async def test_certificate_intent_detection_certificate_of_insurance() -> None:
                 - Acknowledge the request and indicate they will help
                 - Provide email address for certificate requests
                 - Ask for more details about the certificate needed
-                - Offer self-service options
+                - Ask if this is for a new or existing certificate
 
                 The response should be helpful and professional. Saying something
                 like "I'll help you with that" or "One moment" is acceptable
@@ -219,7 +219,7 @@ async def test_certificate_provides_email_address() -> None:
 
                 The response should either:
                 - Provide an email address for certificate requests
-                - Offer self-service options
+                - Ask about the type of certificate request
                 - Explain the process for obtaining a certificate
 
                 The response should be helpful and professional.
@@ -231,8 +231,8 @@ async def test_certificate_provides_email_address() -> None:
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.slow
-async def test_certificate_offers_self_service_app() -> None:
-    """Evaluation: Should mention self-service app option for certificates."""
+async def test_certificate_asks_new_or_existing() -> None:
+    """Evaluation: Should ask whether caller needs new certificate or has existing certificate question."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -252,12 +252,12 @@ async def test_certificate_offers_self_service_app() -> None:
             .judge(
                 llm,
                 intent="""
-                Provides information about self-service options.
+                Responds helpfully to the certificate request.
 
                 The response should either:
-                - Mention an app or online portal
-                - Provide email/contact for assistance
-                - Explain available options
+                - Ask if this is a new certificate request or about an existing one
+                - Provide email address for certificate requests
+                - Offer to help with their certificate needs
 
                 The response should be helpful and professional.
                 """,
@@ -571,14 +571,12 @@ async def test_certificate_urgent_request() -> None:
             .judge(
                 llm,
                 intent="""
-                Provides information for getting a NEW certificate issued quickly.
+                Provides information for getting a NEW certificate issued.
 
                 The response should include:
-                - Email address (Certificate@hlinsure.com) for written requests
-                - Self-service app option for 24/7 certificate issuance
-                - May ask about login credentials for the app
+                - Email address (Certificate@hlinsure.com) for certificate requests
 
-                This provides the fastest options: email or self-service app.
+                The response provides the email for submitting new certificate requests.
                 """,
             )
         )

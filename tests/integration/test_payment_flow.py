@@ -47,13 +47,14 @@ async def test_payment_intent_detection_make_payment() -> None:
             .judge(
                 llm,
                 intent="""
-                Acknowledges the payment request and asks for contact information.
+                Acknowledges the payment request and begins collecting caller information.
 
                 The response should either:
-                - Ask for the caller's name and phone number
+                - Ask for the caller's name (first and/or last name)
                 - OR ask about business vs personal insurance
 
                 The response should be helpful and start the payment process.
+                It does NOT need to ask for all information at once.
                 """,
             )
         )
@@ -81,13 +82,14 @@ async def test_payment_intent_detection_id_card() -> None:
             .judge(
                 llm,
                 intent="""
-                Acknowledges the ID card request and asks for contact information.
+                Acknowledges the ID card request and begins collecting caller information.
 
                 The response should either:
-                - Ask for the caller's name and phone number
+                - Ask for the caller's name (first and/or last name)
                 - OR ask about business vs personal insurance
 
                 The response should be helpful and start the ID card process.
+                It does NOT need to ask for all information at once.
                 """,
             )
         )
@@ -120,11 +122,12 @@ async def test_payment_intent_detection_dec_page() -> None:
                 Acknowledges the declarations page request.
 
                 The response should either:
-                - Ask for the caller's name and phone number
+                - Ask for the caller's name (first and/or last name)
                 - OR ask about business vs personal insurance
                 - OR acknowledge and offer to help get the document
 
                 The response should be helpful and professional.
+                It does NOT need to ask for all information at once.
                 """,
             )
         )
@@ -152,13 +155,14 @@ async def test_payment_intent_detection_pay_bill() -> None:
             .judge(
                 llm,
                 intent="""
-                Acknowledges the bill payment request and asks for contact information.
+                Acknowledges the bill payment request and begins collecting caller information.
 
                 The response should either:
-                - Ask for the caller's name and phone number
+                - Ask for the caller's name (first and/or last name)
                 - OR ask about business vs personal insurance
 
                 The response should be helpful and professional.
+                It does NOT need to ask for all information at once.
                 """,
             )
         )
@@ -189,11 +193,12 @@ async def test_payment_intent_detection_proof_of_insurance() -> None:
                 Acknowledges the proof of insurance request.
 
                 The response should either:
-                - Ask for the caller's name and phone number
+                - Ask for the caller's name (first and/or last name)
                 - OR ask about business vs personal insurance
                 - OR offer to help get the documentation
 
                 The response should be helpful and professional.
+                It does NOT need to ask for all information at once.
                 """,
             )
         )

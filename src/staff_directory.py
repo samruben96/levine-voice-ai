@@ -60,6 +60,7 @@ __all__ = [
     "get_agent_by_extension",
     "get_agent_by_name",
     "get_agents_by_department",
+    "get_agents_by_name_prefix",
     "get_all_pl_sales_agents",
     "get_alpha_route_key",
     "get_available_agent_by_alpha",
@@ -570,6 +571,57 @@ def is_transferable(agent_name: str) -> bool:
 
     # If agent not found, assume transferable (shouldn't happen in practice)
     return True
+
+
+def get_agents_by_name_prefix(name: str) -> list[StaffMember]:
+    """Find all agents whose name matches the search term.
+
+    Uses the same matching strategy as get_agent_by_name but returns ALL matches
+    instead of the first one. Used for disambiguation when multiple agents share
+    a name prefix (e.g., "Rachel" matches both "Rachel T." and "Rachel Moreno").
+
+    Args:
+        name: The name to search for.
+
+    Returns:
+        List of all matching staff members (may be empty).
+
+    Examples:
+        >>> matches = get_agents_by_name_prefix("Rachel")
+        >>> len(matches)
+        2
+        >>> matches = get_agents_by_name_prefix("Adriana")
+        >>> len(matches)
+        1
+    """
+    if not name:
+        return []
+
+    name_lower = name.lower().strip()
+    matches: list[StaffMember] = []
+    seen_names: set[str] = set()
+
+    # First pass: exact match
+    for staff in STAFF_DIRECTORY["staff"]:
+        if staff["name"].lower() == name_lower and staff["name"] not in seen_names:
+            matches.append(staff)
+            seen_names.add(staff["name"])
+
+    # Second pass: staff name starts with search term (prefix match)
+    for staff in STAFF_DIRECTORY["staff"]:
+        staff_name_lower = staff["name"].lower()
+        if staff_name_lower.startswith(name_lower) and staff["name"] not in seen_names:
+            matches.append(staff)
+            seen_names.add(staff["name"])
+
+    # Third pass: search term starts with staff first name
+    for staff in STAFF_DIRECTORY["staff"]:
+        staff_first_name = staff["name"].split()[0].lower()
+        if name_lower.startswith(staff_first_name) and staff["name"] not in seen_names:
+            matches.append(staff)
+            seen_names.add(staff["name"])
+
+    return matches
 
 
 def get_agent_by_name(name: str) -> StaffMember | None:

@@ -6,7 +6,7 @@ This package contains specialized agents for different conversation flows:
   directly via transfer tools (quote, payment, change, cancellation, coverage)
 - ClaimsAgent: Claims filing with business hours vs after-hours carrier lookup
 - MortgageeCertificateAgent: Certificate of insurance and mortgagee requests
-  (redirects to email/self-service, no transfer)
+  (new certificates → email, existing certificates → transfer to AE, mortgagee → email)
 - AfterHoursAgent: After-hours voicemail flow for non-claims requests
 
 Note: The Assistant now uses direct transfer tools instead of sub-agent handoffs

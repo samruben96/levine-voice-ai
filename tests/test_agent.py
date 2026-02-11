@@ -3896,15 +3896,15 @@ async def test_certificate_provides_email_address() -> None:
 
 
 @pytest.mark.asyncio
-async def test_certificate_offers_self_service_app() -> None:
-    """Evaluation: Agent should offer the self-service app option for certificates."""
+async def test_certificate_asks_new_or_existing() -> None:
+    """Evaluation: Agent should ask whether caller needs new certificate or has existing certificate question."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
     ):
         await session.start(Assistant())
 
-        # Simplified: directly ask about self-service for COI
+        # Simplified: directly ask about certificate
         result = await session.run(
             user_input="I need a certificate of insurance - is there a way I can do this myself online?"
         )
@@ -3924,9 +3924,9 @@ async def test_certificate_offers_self_service_app() -> None:
                 Responds helpfully to the certificate request.
 
                 The response should EITHER:
-                - Mention there is a self-service option, app, or portal
-                - OR offer to help with the certificate request
-                - OR ask for information to process the request
+                - Ask if this is a new certificate request or about an existing one
+                - Provide email address for certificate requests
+                - Offer to help with the certificate request
 
                 The response should be helpful and informative about how to
                 obtain a certificate of insurance.
@@ -3936,17 +3936,17 @@ async def test_certificate_offers_self_service_app() -> None:
 
 
 @pytest.mark.asyncio
-async def test_certificate_login_help_flow() -> None:
-    """Evaluation: Agent should offer to help with login credentials."""
+async def test_certificate_email_flow() -> None:
+    """Evaluation: Agent should provide email address for certificate requests."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
     ):
         await session.start(Assistant())
 
-        # Caller has app login issues
+        # Caller needs certificate
         result = await session.run(
-            user_input="I'm trying to get a certificate but I can't log into the app"
+            user_input="I'm trying to get a certificate of insurance"
         )
 
         # Skip function calls and handoff
@@ -3961,11 +3961,11 @@ async def test_certificate_login_help_flow() -> None:
             .judge(
                 llm,
                 intent="""
-                Responds helpfully to the certificate/login request.
+                Responds helpfully to the certificate request.
 
                 The response should do ONE OR MORE of the following:
                 - Acknowledge the request and offer to help
-                - Provide information about getting a certificate
+                - Provide email address for certificate requests
                 - Ask for caller information to assist
                 - Offer to connect with someone who can help
 
@@ -3981,18 +3981,16 @@ async def test_certificate_login_help_flow() -> None:
 
 
 @pytest.mark.asyncio
-async def test_certificate_credential_resend_asks_info() -> None:
-    """Evaluation: Agent should ask for information to help with credential resend."""
+async def test_certificate_request_asks_info() -> None:
+    """Evaluation: Agent should ask for information to help with certificate request."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
     ):
         await session.start(Assistant())
 
-        # Simplified: single turn request for credential help
-        result = await session.run(
-            user_input="I forgot my password for the certificate portal and need it resent"
-        )
+        # Simplified: single turn request for certificate
+        result = await session.run(user_input="I need a certificate of insurance")
 
         # Skip function calls and handoff
         for _ in range(10):
@@ -4006,23 +4004,23 @@ async def test_certificate_credential_resend_asks_info() -> None:
             .judge(
                 llm,
                 intent="""
-                Responds helpfully to the credential/password reset request.
+                Responds helpfully to the certificate request.
 
                 The response should do ONE OR MORE of the following:
                 - Ask for contact information (name, phone, OR email)
-                - Offer to help with the password reset
+                - Provide email address for certificate requests
                 - Offer to connect with someone who can assist
-                - Provide guidance on how to get credentials
+                - Provide guidance on how to get a certificate
 
-                The goal is to be helpful in addressing the login issue.
+                The goal is to be helpful in addressing the certificate request.
                 """,
             )
         )
 
 
 @pytest.mark.asyncio
-async def test_certificate_login_help_provides_assistance() -> None:
-    """Evaluation: Agent should provide helpful assistance for login issues."""
+async def test_certificate_provides_email_assistance() -> None:
+    """Evaluation: Agent should provide helpful assistance for certificate requests."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -4031,7 +4029,7 @@ async def test_certificate_login_help_provides_assistance() -> None:
 
         # Simplified: single request with context
         result = await session.run(
-            user_input="I can't log into the certificate system and need help resetting my password. My name is Sam Rubin."
+            user_input="I need help getting a certificate of insurance. My name is Sam Rubin."
         )
 
         # Skip function calls and handoff
@@ -4046,35 +4044,34 @@ async def test_certificate_login_help_provides_assistance() -> None:
             .judge(
                 llm,
                 intent="""
-                Provides a helpful response about certificates or login assistance.
+                Provides a helpful response about certificates.
 
                 PASS if the response does ANY of the following:
-                - Acknowledges the login issue
-                - Provides information about certificates (email address, app, etc.)
+                - Acknowledges the request
+                - Provides information about certificates (email address, etc.)
                 - Offers to help with the request
                 - Provides contact information for certificate support
-                - Mentions the certificate email or app
+                - Mentions the certificate email
 
                 The response IS helpful if it gives the caller a path forward
-                for their certificate needs, even if it redirects to email or
-                app self-service rather than direct password reset.
+                for their certificate needs.
                 """,
             )
         )
 
 
 @pytest.mark.asyncio
-async def test_certificate_caller_knows_login() -> None:
-    """Evaluation: When caller already knows login, agent should be helpful."""
+async def test_certificate_caller_self_service() -> None:
+    """Evaluation: When caller wants to handle certificate themselves, agent should be helpful."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
     ):
         await session.start(Assistant())
 
-        # Caller says they can log in themselves
+        # Caller says they want to handle it themselves
         result = await session.run(
-            user_input="I need a certificate of insurance, I can log into the app myself"
+            user_input="I need a certificate of insurance, I want to handle it myself"
         )
 
         # Skip function calls and handoff
@@ -4089,15 +4086,15 @@ async def test_certificate_caller_knows_login() -> None:
             .judge(
                 llm,
                 intent="""
-                Responds helpfully to the caller who can self-service.
+                Responds helpfully to the caller.
 
                 The response should be supportive and EITHER:
-                - Acknowledge they can handle it themselves
+                - Acknowledge the certificate request
+                - Provide email address for certificate requests
                 - Offer additional help if needed
-                - Confirm the self-service option is available
                 - Be brief and professional
 
-                The caller indicated they know how to access the app,
+                The caller indicated they want to handle it themselves,
                 so the response should support that.
                 """,
             )
@@ -4531,7 +4528,7 @@ async def test_certificate_urgent_request() -> None:
                 PASS if the response does ANY of the following:
                 - Offers to help with the certificate request
                 - Provides information about how to get a certificate
-                - Provides email or self-service options for quick access
+                - Provides email for certificate requests
                 - Asks for information to assist with the request
                 - Is efficient and professional
 

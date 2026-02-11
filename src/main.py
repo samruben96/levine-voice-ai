@@ -143,8 +143,8 @@ async def my_agent(ctx: JobContext) -> None:
             model="assemblyai/universal-streaming",
             language="en",
             extra_kwargs={
-                "end_of_turn_confidence_threshold": 0.5,
-                "min_end_of_turn_silence_when_confident": 300,
+                "end_of_turn_confidence_threshold": 0.45,
+                "min_end_of_turn_silence_when_confident": 250,
                 "max_turn_silence": 1000,  # Safety net for long pauses
             },
         ),
@@ -172,9 +172,9 @@ async def my_agent(ctx: JobContext) -> None:
         # - min_endpointing_delay: Reduced from 0.5s default for faster turn completion
         # - max_endpointing_delay: Reduced from 3.0s default to avoid long pauses
         # - min_interruption_duration: Reduced from 0.5s for more responsive interruptions
-        min_endpointing_delay=0.3,
-        max_endpointing_delay=1.5,
-        min_interruption_duration=0.3,
+        min_endpointing_delay=0.2,
+        max_endpointing_delay=1.0,
+        min_interruption_duration=0.2,
         # Store caller information for the session
         userdata=caller_info,
     )
