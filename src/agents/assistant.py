@@ -15,6 +15,7 @@ from agents.mortgagee import MortgageeCertificateAgent
 from business_hours import (
     format_business_hours_prompt,
     get_next_open_time,
+    is_lunch_hour,
     is_office_open,
 )
 from constants import HOLD_MESSAGE
@@ -89,18 +90,25 @@ class Assistant(Agent):
             else format_business_hours_prompt()
         )
 
-        # Determine after-hours status for on_enter behavior
+        # Determine after-hours and lunch status for on_enter behavior
         if is_after_hours is not None:
             self._is_after_hours = is_after_hours
+            self._is_lunch = False
         elif business_hours_context is not None:
-            # Parse from context string - check for "Closed" in OFFICE STATUS
             self._is_after_hours = "OFFICE STATUS: Closed" in business_hours_context
+            self._is_lunch = "OFFICE STATUS: Lunch" in business_hours_context
         else:
-            # Use real-time check
-            self._is_after_hours = not is_office_open()
+            # Use real-time check; lunch and after-hours are mutually exclusive
+            self._is_lunch = is_lunch_hour()
+            self._is_after_hours = not is_office_open() and not self._is_lunch
 
         # Determine the greeting instruction based on office status
-        if self._is_after_hours:
+        if self._is_lunch:
+            greeting_instruction = """GREETING (SAY THIS FIRST when you start):
+"Thank you for calling Harry Leveen Insurance. I'm Aizellee, an automated assistant. Our staff is on lunch break right now and we'll be back at 1. How can I help you?"
+You may vary the wording slightly but you MUST mention the lunch break and 1 PM return.
+EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, theft, fire, claim), SKIP the greeting and respond with empathy FIRST. Then mention the lunch break after showing empathy."""
+        elif self._is_after_hours:
             greeting_instruction = """GREETING (SAY THIS FIRST when you start):
 "Thanks for calling Harry Leveen Insurance. I'm Aizellee, an automated assistant. We're closed now, but open weekdays 9 to 5 Eastern. How can I help with your insurance?"
 IMPORTANT: You MUST mention that the office is closed in your first response.
@@ -668,6 +676,8 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         # Generate contextual response based on current business hours status
         if is_office_open():
             hours_info = "We're open right now until 5 PM"
+        elif is_lunch_hour():
+            hours_info = "We're on our lunch break right now, but we'll be back at 1 PM"
         else:
             next_open = get_next_open_time()
             hours_info = f"We're currently closed, but we'll reopen {next_open}"

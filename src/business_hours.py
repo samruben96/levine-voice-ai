@@ -341,18 +341,21 @@ def get_next_open_time(now: datetime | None = None) -> str:
             return "in about a minute"
         return f"in about {minutes} minutes"
 
+    # Format the reopening time dynamically
+    open_time_str = next_open.strftime("%-I %p").lstrip("0")
+
     # Check if it's later today (same calendar day, before opening)
     if next_open.date() == now.date():
-        return "later today at 9 AM"
+        return f"later today at {open_time_str}"
 
     # Check if it's tomorrow
     tomorrow = now.date() + timedelta(days=1)
     if next_open.date() == tomorrow:
-        return "tomorrow at 9 AM"
+        return f"tomorrow at {open_time_str}"
 
     # Otherwise, use the day name
     day_name = DAY_NAMES[next_open.weekday()]
-    return f"{day_name} at 9 AM"
+    return f"{day_name} at {open_time_str}"
 
 
 def _find_next_opening(now: datetime) -> datetime:
@@ -389,6 +392,9 @@ def _find_next_opening(now: datetime) -> datetime:
         if days_ahead == 0:
             if opening_dt > now:
                 return opening_dt
+            # During lunch hour, next opening is 1 PM today
+            if LUNCH_START <= now.time() < LUNCH_END:
+                return datetime.combine(check_date, LUNCH_END, tzinfo=_EASTERN_TZ)
             # If we're past opening but before closing, still return this opening
             # (for edge cases where caller asks while office is open)
             if schedule.close_time is not None:
@@ -540,6 +546,9 @@ def format_business_hours_prompt(now: datetime | None = None) -> str:
 
     if is_open:
         status = "Open (closes at 5 PM)"
+    elif is_lunch_hour(now):
+        next_open = get_next_open_time(now)
+        status = f"Lunch (reopens {next_open})"
     else:
         next_open = get_next_open_time(now)
         status = f"Closed (reopens {next_open})"
