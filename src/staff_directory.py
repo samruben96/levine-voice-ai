@@ -14,7 +14,7 @@ Routing Rules:
 
 2. Personal Lines (PL) Routing:
    - NEW business goes to PL Sales Agents: Rachel Moreno (A-L), Brad (M-Z)
-   - EXISTING clients go to PL Account Executives: Yarislyn (A-G), Al (H-M), Luis (N-Z)
+   - EXISTING clients go to PL Account Executives: Yarislyn (A-G), Al (H-M), Louis (N-Z)
    - The routing is based on the caller's last name first letter
 
 3. Alpha Exception Prefixes:
@@ -192,7 +192,7 @@ STAFF_DIRECTORY: StaffDirectoryConfig = {
         },
         {
             "department": "PL-Account Executive",
-            "name": "Luis",
+            "name": "Louis",
             "assigned": "N-Z",
             "ext": "7017",
             "timeBlock": "10:00-11:00",
@@ -507,7 +507,7 @@ def find_pl_sales_agent_with_fallback(
         return (alternate_agent, "alternate_sales")
 
     # Step 3: Fall back to PL Account Executive for the original alpha range
-    # Account Executives: Yarislyn (A-G), Al (H-M), Luis (N-Z)
+    # Account Executives: Yarislyn (A-G), Al (H-M), Louis (N-Z)
     account_exec = find_agent_by_alpha(letter_upper, "PL", is_new_business=False)
     if account_exec and is_agent_available(account_exec):
         return (account_exec, "account_executive")

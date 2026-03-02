@@ -177,11 +177,11 @@ class TestFindAgentByAlpha:
             assert agent["department"] == "PL-Account Executive"
 
     def test_pl_existing_n_to_z(self) -> None:
-        """Test PL existing clients route to Luis for N-Z."""
+        """Test PL existing clients route to Louis for N-Z."""
         for letter in "NOPQRSTUVWXYZ":
             agent = find_agent_by_alpha(letter, "PL", is_new_business=False)
             assert agent is not None, f"No agent found for letter {letter}"
-            assert agent["name"] == "Luis"
+            assert agent["name"] == "Louis"
             assert agent["department"] == "PL-Account Executive"
 
     # Commercial Lines (Account Executives handle both)
@@ -844,10 +844,10 @@ class TestPLSalesAgentFallback:
         assert agent["name"] == "Al"
         assert fallback_type == "account_executive"
 
-        # Letter 'N' -> should get Luis (N-Z Account Executive)
+        # Letter 'N' -> should get Louis (N-Z Account Executive)
         agent, fallback_type = find_pl_sales_agent_with_fallback("N")
         assert agent is not None
-        assert agent["name"] == "Luis"
+        assert agent["name"] == "Louis"
         assert fallback_type == "account_executive"
 
     @patch("staff_directory.is_agent_available")

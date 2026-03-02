@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-02-11 -->
+<!-- Generated: 2026-02-11 | Updated: 2026-03-02 -->
 
 # unit/
 
@@ -18,6 +18,9 @@ Fast unit tests that run without external API calls or LLM inference. These test
 | `test_agent_instructions.py` | Agent instruction validation: security instructions present, instruction composition, template consistency |
 | `test_handoff_speech.py` | Handoff speech deduplication: `_handoff_speech_delivered` flag behavior across agent transfers |
 | `test_route_logging.py` | Structured route decision logging: PII masking in logs, log format validation |
+| `test_lunch_hour.py` | Lunch hour handling: `is_lunch_hour()` 12-1 PM detection, `_find_next_opening()` returns 1 PM during lunch, `format_business_hours_prompt()` shows "Lunch" status, Assistant `_is_lunch`/`_is_after_hours` flags, greeting content |
+| `test_collect_contact_task.py` | Tests for the contact info collection task: instructions, tool configuration |
+| `test_phone_collection.py` | Tests for the DTMF+speech phone collection task: SIP and non-SIP flows |
 | `__init__.py` | Package marker |
 
 ## For AI Agents
@@ -32,6 +35,7 @@ Fast unit tests that run without external API calls or LLM inference. These test
 ### Testing Requirements
 - New utility functions in `src/utils.py` should have corresponding tests here
 - New model fields on `CallerInfo` should be tested in `test_caller_info.py`
+- Lunch hour or business hours changes should be tested in `test_lunch_hour.py`
 - New carrier numbers should be tested in `test_carrier_claims.py`
 - Agent instruction changes should be validated in `test_agent_instructions.py`
 

@@ -10,7 +10,7 @@ This module contains:
 # HOLD MESSAGE CONFIGURATION
 # =============================================================================
 
-HOLD_MESSAGE = "We're getting an agent for you, thanks for your patience."
+HOLD_MESSAGE = "One moment while I connect you."
 
 
 # =============================================================================

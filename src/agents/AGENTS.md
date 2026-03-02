@@ -1,5 +1,5 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-02-11 -->
+<!-- Generated: 2026-02-11 | Updated: 2026-03-02 -->
 
 # agents/
 
@@ -34,7 +34,7 @@ Assistant (main entry point)
 - **Agent screening**: ALL specific agent requests go through a "what is this in reference to?" screening step before transfer
 - **Name disambiguation**: When multiple agents share a name prefix (e.g., "Rachel"), `get_agents_by_name_prefix()` returns all matches for disambiguation. Exact matches via `get_agent_by_name()` take priority
 - **Handoff speech**: The `_handoff_speech_delivered` flag on `CallerInfo` prevents duplicate transfer messages during handoffs
-- **Business hours**: `ClaimsAgent` and `Assistant` both check business hours. Use constructor params (`is_business_hours`, `is_after_hours`) for testability
+- **Business hours**: `ClaimsAgent` and `Assistant` both check business hours. Assistant also imports `is_lunch_hour` to distinguish lunch break from after-hours in greetings. Use constructor params (`is_business_hours`, `is_after_hours`) for testability
 - **Instruction composition**: Use `compose_instructions()` and template fragments from `instruction_templates.py` for prompt construction
 - **Security instructions**: Every agent MUST include `SECURITY_INSTRUCTIONS` from `instruction_templates.py`
 
@@ -64,6 +64,6 @@ Assistant (main entry point)
 
 ### External
 - `livekit.agents` — `Agent`, `RunContext`, `function_tool`, `AgentSession`
-- `livekit.api` — Room deletion (used in `after_hours.py` for `hangup_call`)
+- `livekit.agents.beta.tools` — `EndCallTool` (used in `after_hours.py` to end calls)
 
 <!-- MANUAL: -->

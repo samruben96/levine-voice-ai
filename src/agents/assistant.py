@@ -320,9 +320,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
 
         # Return just the agent (no tuple) for SILENT handoff
         # The tool already spoke via session.say() above
-        return ClaimsAgent(
-            chat_ctx=self.session.chat_ctx.copy(exclude_config_update=True)
-        )
+        return ClaimsAgent(chat_ctx=self.chat_ctx.copy(exclude_config_update=True))
 
     @function_tool
     async def route_call_certificate(
@@ -358,11 +356,18 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
         )
 
+        # Speak before handoff so MortgageeCertificateAgent can skip acknowledgment
+        await context.session.say(
+            "I can help you with your certificate request.",
+            allow_interruptions=False,
+        )
+        context.userdata._handoff_speech_delivered = True
+
         # Hand off to the specialized MortgageeCertificateAgent with conversation context
         return MortgageeCertificateAgent(
             request_type="certificate",
-            chat_ctx=self.session.chat_ctx.copy(exclude_config_update=True),
-        ), "I can help you with your certificate request."
+            chat_ctx=self.chat_ctx.copy(exclude_config_update=True),
+        )
 
     @function_tool
     async def route_call_mortgagee(
@@ -402,7 +407,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         # Hand off to the specialized MortgageeCertificateAgent with conversation context
         return MortgageeCertificateAgent(
             request_type="mortgagee",
-            chat_ctx=self.session.chat_ctx.copy(exclude_config_update=True),
+            chat_ctx=self.chat_ctx.copy(exclude_config_update=True),
         ), "I can help you with that."
 
     @function_tool
@@ -526,7 +531,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         """
         from tasks.phone_collection import collect_phone_number_dtmf
 
-        phone = await collect_phone_number_dtmf(self.session.chat_ctx)
+        phone = await collect_phone_number_dtmf(self.chat_ctx)
         if phone:
             context.userdata.phone_number = phone
             return f"Recorded phone number: {phone}"
@@ -583,7 +588,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
 
         # Hand off to the specialized AfterHoursAgent with conversation context
         return AfterHoursAgent(
-            chat_ctx=self.session.chat_ctx.copy(exclude_config_update=True),
+            chat_ctx=self.chat_ctx.copy(exclude_config_update=True),
         ), "Let me connect you with our after-hours system."
 
     @function_tool
@@ -683,12 +688,51 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             hours_info = f"We're currently closed, but we'll reopen {next_open}"
 
         return (
-            f"{hours_info}. Our regular hours are Monday through Friday, 9 AM to 5 PM Eastern. "
-            "We do close from 12 to 1 for lunch, so keep that in mind if you're planning to call or visit. "
-            "We're located at 7208 West Sand Lake Road, Suite 206, Orlando, Florida 32819. "
-            "While we are available for walk-ins, appointments are strongly recommended "
-            "so that enough time is allotted to review and address any concerns, questions, "
-            "or changes you would like to go over."
+            f"{hours_info}. "
+            "Our regular hours are Monday through Friday, 9 AM to 5 PM Eastern, "
+            "and we're closed from 12 to 1 for lunch. "
+            "We're located at 7208 West Sand Lake Road, Suite 206, Orlando, Florida 32819."
+        )
+
+    @function_tool
+    async def offer_appointment(
+        self,
+        context: RunContext[CallerInfo],
+    ) -> None:
+        """Offer to schedule an appointment and transfer to service team.
+
+        Call this when the caller mentions wanting to:
+        - Come into the office
+        - Sign documents
+        - Meet with someone in person
+        - Visit the office
+        - Schedule an appointment
+        """
+        context.userdata.call_intent = CallIntent.SOMETHING_ELSE
+        context.userdata.additional_notes = "Appointment scheduling request"
+        logger.info(
+            f"Appointment request, transferring to VA ring group: {context.userdata.to_safe_log()}"
+        )
+
+        # Log the routing decision
+        log_route_decision(
+            intent=CallIntent.SOMETHING_ELSE,
+            agent=None,
+            insurance_type=context.userdata.insurance_type,
+            identifier=context.userdata.business_name
+            or context.userdata.last_name_spelled,
+            destination="ring_group:VA (appointment)",
+            is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
+        )
+
+        await context.session.say(
+            "We strongly recommend scheduling an appointment to make sure "
+            "your account executive is available when you come in. "
+            "Let me connect you with our service team to get that set up for you.",
+            allow_interruptions=False,
+        )
+        await self._initiate_ring_group_transfer(
+            context, "VA", "appointment scheduling"
         )
 
     @function_tool

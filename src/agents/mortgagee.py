@@ -269,6 +269,7 @@ class MortgageeCertificateAgent(Agent):
         logger.info("Mortgagee request - provided email info")
         info_email = format_email_for_speech("info@hlinsure.com")
         return (
-            f"Got it. HLI requires all mortgagee and lienholder requests to be sent in writing to "
-            f"{info_email} Is there anything else I can help you with today?"
+            f"HLI requires all mortgagee and lienholder requests to be sent in writing. "
+            f"The email address is {info_email} "
+            "Would you like me to repeat that, or is there anything else I can help you with today?"
         )

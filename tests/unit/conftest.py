@@ -82,7 +82,7 @@ def complete_caller_info_personal():
         phone_number="5551234567",
         insurance_type=InsuranceType.PERSONAL,
         last_name_spelled="SMITH",
-        assigned_agent="Luis",
+        assigned_agent="Louis",
     )
 
 

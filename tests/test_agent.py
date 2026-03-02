@@ -2297,7 +2297,7 @@ async def test_cancellation_personal_transfer_to_correct_ae() -> None:
         await session.run(user_input="I want to cancel my auto insurance")
         await session.run(user_input="Personal")
 
-        # Spell last name starting with 'S' -> should route to Luis (N-Z)
+        # Spell last name starting with 'S' -> should route to Louis (N-Z)
         result = await session.run(user_input="S M I T H")
 
         # Skip all function calls
@@ -2313,7 +2313,7 @@ async def test_cancellation_personal_transfer_to_correct_ae() -> None:
                 llm,
                 intent="""
                 Either:
-                1. Indicates transfer to an Account Executive (may mention Luis for N-Z), OR
+                1. Indicates transfer to an Account Executive (may mention Louis for N-Z), OR
                 2. Acknowledges the spelled name and confirms connection
 
                 The response should be friendly and professional.
@@ -3057,7 +3057,7 @@ async def test_coverage_rate_personal_transfer_to_ae() -> None:
         await session.run(user_input="Why did my rate increase?")
         await session.run(user_input="Personal")
 
-        # Spell last name (S -> routes to Luis N-Z per alpha-split)
+        # Spell last name (S -> routes to Louis N-Z per alpha-split)
         result = await session.run(user_input="S M I T H")
 
         # Skip all function calls
@@ -3073,7 +3073,7 @@ async def test_coverage_rate_personal_transfer_to_ae() -> None:
                 llm,
                 intent="""
                 The response should either:
-                1. Indicate transfer/connection to an Account Executive (may mention Luis for N-Z), OR
+                1. Indicate transfer/connection to an Account Executive (may mention Louis for N-Z), OR
                 2. Acknowledge the spelled name and confirm connection, OR
                 3. Offer to connect them with someone who can answer their rate question
 
@@ -3443,7 +3443,7 @@ async def test_something_else_personal_transfer_to_correct_ae() -> None:
         )
         await session.run(user_input="Personal")
 
-        # Provide last name starting with 'R' -> should route to Luis (N-Z)
+        # Provide last name starting with 'R' -> should route to Louis (N-Z)
         result = await session.run(user_input="R-U-B-I-N")
 
         # Skip all function calls
@@ -3461,7 +3461,7 @@ async def test_something_else_personal_transfer_to_correct_ae() -> None:
                 Progresses the request appropriately.
 
                 The response should do ONE of these:
-                1. Indicate transfer/connection to Account Executive (may mention Luis for N-Z)
+                1. Indicate transfer/connection to Account Executive (may mention Louis for N-Z)
                 2. Acknowledge the last name and indicate someone will help
                 3. Ask what they're calling about to relay to the Account Executive
 
@@ -6707,7 +6707,7 @@ class TestAfterHoursVoicemailFlow:
 
     @pytest.mark.asyncio
     async def test_after_hours_personal_n_routes_to_luis_voicemail(self) -> None:
-        """Test personal insurance last name 'N' routes to Luis's voicemail (N-Z)."""
+        """Test personal insurance last name 'N' routes to Louis's voicemail (N-Z)."""
         after_hours_context = "CURRENT TIME: 6:00 PM ET, Friday\nOFFICE STATUS: Closed (reopens Monday at 9 AM)"
 
         async with (
@@ -6738,7 +6738,7 @@ class TestAfterHoursVoicemailFlow:
                     Routes to voicemail for personal lines Account Executive (N-Z range).
 
                     The response should either:
-                    - Mention Luis (the PL-AE for N-Z), OR
+                    - Mention Louis (the PL-AE for N-Z), OR
                     - Indicate transfer to appropriate agent/voicemail, OR
                     - Confirm message will be delivered to the right person
 

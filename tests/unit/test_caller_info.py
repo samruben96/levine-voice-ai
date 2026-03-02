@@ -106,8 +106,8 @@ class TestCallerInfoAssignedAgent:
 
     def test_assigned_agent_via_constructor(self):
         """Test setting assigned agent via constructor."""
-        caller = CallerInfo(assigned_agent="Luis")
-        assert caller.assigned_agent == "Luis"
+        caller = CallerInfo(assigned_agent="Louis")
+        assert caller.assigned_agent == "Louis"
 
 
 @pytest.mark.unit
