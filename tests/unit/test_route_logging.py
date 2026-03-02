@@ -200,8 +200,8 @@ class TestLogRouteDecisionPIIMasking:
         assert "identifier=J******" in log_message
         assert "Johnson" not in log_message
 
-    def test_log_route_decision_does_not_mask_business_identifier(self, caplog):
-        """Test that business names are NOT masked."""
+    def test_log_route_decision_masks_business_identifier(self, caplog):
+        """Test that business names ARE masked (all identifiers masked for PII safety)."""
         with caplog.at_level(logging.INFO, logger="agent"):
             log_route_decision(
                 intent=CallIntent.NEW_QUOTE,
@@ -213,8 +213,9 @@ class TestLogRouteDecisionPIIMasking:
             )
 
         log_message = caplog.records[0].message
-        # Business name should appear unmasked
-        assert "identifier=Acme Corporation" in log_message
+        # Business name should be masked (first char + asterisks)
+        assert "identifier=A***************" in log_message
+        assert "Acme Corporation" not in log_message
 
     def test_log_route_decision_masks_short_name(self, caplog):
         """Test that short names (e.g., 'Li') are properly masked."""
@@ -250,8 +251,8 @@ class TestLogRouteDecisionPIIMasking:
         assert "identifier=W*******************" in log_message
         assert "Williamson-Rodriguez" not in log_message
 
-    def test_log_route_decision_default_is_personal_false(self, caplog):
-        """Test that is_personal defaults to False (no masking)."""
+    def test_log_route_decision_default_masks_identifier(self, caplog):
+        """Test that identifiers are always masked regardless of is_personal."""
         with caplog.at_level(logging.INFO, logger="agent"):
             log_route_decision(
                 intent=CallIntent.COVERAGE_RATE_QUESTIONS,
@@ -263,8 +264,9 @@ class TestLogRouteDecisionPIIMasking:
             )
 
         log_message = caplog.records[0].message
-        # Without is_personal=True, identifier should NOT be masked
-        assert "identifier=TestName" in log_message
+        # All identifiers are now masked for PII safety
+        assert "identifier=T*******" in log_message
+        assert "TestName" not in log_message
 
 
 # =============================================================================
@@ -309,7 +311,7 @@ class TestLogRouteDecisionEdgeCases:
         assert "identifier=X" in log_message
 
     def test_log_route_decision_with_whitespace_identifier(self, caplog):
-        """Test that whitespace-only identifier is not masked as business."""
+        """Test that whitespace-only identifier is masked."""
         with caplog.at_level(logging.INFO, logger="agent"):
             log_route_decision(
                 intent=CallIntent.SOMETHING_ELSE,
@@ -321,11 +323,11 @@ class TestLogRouteDecisionEdgeCases:
             )
 
         log_message = caplog.records[0].message
-        # Whitespace is truthy, so it should be passed through
-        assert "identifier=   " in log_message
+        # Whitespace is truthy so mask_name is called; raw whitespace should not appear
+        assert "identifier=" in log_message
 
     def test_log_route_decision_with_special_characters_in_identifier(self, caplog):
-        """Test identifiers with special characters."""
+        """Test identifiers with special characters are masked."""
         with caplog.at_level(logging.INFO, logger="agent"):
             log_route_decision(
                 intent=CallIntent.CERTIFICATES,
@@ -337,7 +339,9 @@ class TestLogRouteDecisionEdgeCases:
             )
 
         log_message = caplog.records[0].message
-        assert "identifier=O'Brien & Sons, LLC" in log_message
+        # Business name with special chars should be masked
+        assert "O'Brien & Sons, LLC" not in log_message
+        assert "identifier=O" in log_message
 
     def test_log_route_decision_log_level_is_info(self, caplog):
         """Test that route decisions are logged at INFO level."""

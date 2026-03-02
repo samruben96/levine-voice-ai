@@ -103,12 +103,12 @@ class TestCarrierClaimsNumbers:
 
     def test_carrier_claims_number_lookup_partial_name(self):
         """Test lookup with partial carrier name."""
-        # Test that partial names might still work
-        get_carrier_claims_number("State")
-        # Could return State Farm or None depending on implementation
-        # Document actual behavior
+        result = get_carrier_claims_number("State")
+        # Partial name "State" matches "State Farm" via substring search
+        assert result == "1-800-732-5246"
 
     def test_carrier_claims_number_lookup_with_typo(self):
         """Test lookup with common typo."""
-        get_carrier_claims_number("Progressiv")  # Missing 'e'
-        # Should probably return None unless fuzzy matching is implemented
+        result = get_carrier_claims_number("Progressiv")
+        # "Progressiv" is a prefix of "Progressive", should match via partial match
+        assert result == "1-800-776-4737"

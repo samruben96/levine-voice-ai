@@ -183,26 +183,9 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             f"Recorded caller info: {mask_name(full_name)}, {mask_phone(phone_number)}"
         )
 
-        # Format phone for voice confirmation with chunking for easier verification
-        # e.g., "5551234567" -> "5-5-5, 1-2-3, 4-5-6-7"
         digits = "".join(filter(str.isdigit, phone_number))
-        if len(digits) == 10:
-            formatted = (
-                f"{digits[0]}-{digits[1]}-{digits[2]}, "
-                f"{digits[3]}-{digits[4]}-{digits[5]}, "
-                f"{digits[6]}-{digits[7]}-{digits[8]}-{digits[9]}"
-            )
-        elif len(digits) == 11 and digits[0] == "1":
-            # Handle 1-xxx-xxx-xxxx format
-            formatted = (
-                f"{digits[1]}-{digits[2]}-{digits[3]}, "
-                f"{digits[4]}-{digits[5]}-{digits[6]}, "
-                f"{digits[7]}-{digits[8]}-{digits[9]}-{digits[10]}"
-            )
-        else:
-            formatted = phone_number  # Fallback to original
-
-        return f"Recorded: {full_name}, {formatted}"
+        last4 = digits[-4:] if len(digits) >= 4 else digits
+        return f"Contact information recorded. Phone ending in {last4}."
 
     @function_tool
     async def record_business_insurance_info(
@@ -222,8 +205,10 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         context.userdata.insurance_type = InsuranceType.BUSINESS
         context.userdata.business_name = business_name
 
-        logger.info(f"Business insurance inquiry recorded for: {business_name}")
-        return f"Recorded business insurance for: {business_name}"
+        logger.info(
+            f"Business insurance inquiry recorded for: {mask_name(business_name)}"
+        )
+        return "Business insurance noted."
 
     @function_tool
     async def record_personal_insurance_info(
@@ -255,8 +240,8 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         ):
             # STT likely misheard the spelling - use the last_name we already have
             logger.warning(
-                f"Spelled name mismatch: heard '{last_name_spelled}' -> '{normalized}', "
-                f"but contact info has last_name='{context.userdata.last_name}'. "
+                f"Spelled name mismatch: heard '{mask_name(last_name_spelled)}' -> '{mask_name(normalized) if normalized else 'empty'}', "
+                f"but contact info has last_name='{mask_name(context.userdata.last_name)}'. "
                 f"Using last_name for routing."
             )
             normalized = context.userdata.last_name.upper()
@@ -268,7 +253,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         logger.info(
             f"Personal insurance inquiry recorded, last name: {mask_name(context.userdata.last_name_spelled)}"
         )
-        return f"Recorded personal insurance for last name: {context.userdata.last_name_spelled}"
+        return "Personal insurance noted. Last name recorded."
 
     @function_tool
     async def route_call_claims(
@@ -534,7 +519,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         phone = await collect_phone_number_dtmf(self.chat_ctx)
         if phone:
             context.userdata.phone_number = phone
-            return f"Recorded phone number: {phone}"
+            return "Phone number recorded."
         else:
             return "I wasn't able to capture that. Could you tell me your phone number?"
 
@@ -792,7 +777,9 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             )
             return f"Sure, I can connect you with {agent['name']}. May I ask what this is in reference to?"
         else:
-            logger.info(f"Agent not found in directory: {agent_name}")
+            logger.info(
+                f"Agent not found in directory: {mask_name(agent_name) if agent_name else 'empty'}"
+            )
             return "I'm not finding that name in our directory. Could you double-check the name for me?"
 
     @function_tool
@@ -868,8 +855,8 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
                     logger.warning("No Account Executive found for redirect")
                     raise ToolError(
                         f"No Account Executive found for insurance_type={context.userdata.insurance_type}, "
-                        f"business_name={context.userdata.business_name}, "
-                        f"last_name_spelled={context.userdata.last_name_spelled}"
+                        f"business_name={mask_name(context.userdata.business_name) if context.userdata.business_name else 'None'}, "
+                        f"last_name_spelled={mask_name(context.userdata.last_name_spelled) if context.userdata.last_name_spelled else 'None'}"
                     )
 
                 logger.info(
@@ -1265,8 +1252,8 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             logger.warning("No agent found for new quote transfer")
             raise ToolError(
                 f"No agent found for new quote: insurance_type={context.userdata.insurance_type}, "
-                f"business_name={context.userdata.business_name}, "
-                f"last_name_spelled={context.userdata.last_name_spelled}"
+                f"business_name={mask_name(context.userdata.business_name) if context.userdata.business_name else 'None'}, "
+                f"last_name_spelled={mask_name(context.userdata.last_name_spelled) if context.userdata.last_name_spelled else 'None'}"
             )
 
         # Log the routing decision for Commercial Lines
@@ -1319,8 +1306,8 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             logger.warning("No agent found for policy change transfer")
             raise ToolError(
                 f"No agent found for policy change: insurance_type={context.userdata.insurance_type}, "
-                f"business_name={context.userdata.business_name}, "
-                f"last_name_spelled={context.userdata.last_name_spelled}"
+                f"business_name={mask_name(context.userdata.business_name) if context.userdata.business_name else 'None'}, "
+                f"last_name_spelled={mask_name(context.userdata.last_name_spelled) if context.userdata.last_name_spelled else 'None'}"
             )
 
         # Log the routing decision
@@ -1376,8 +1363,8 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             logger.warning("No agent found for coverage question transfer")
             raise ToolError(
                 f"No agent found for coverage question: insurance_type={context.userdata.insurance_type}, "
-                f"business_name={context.userdata.business_name}, "
-                f"last_name_spelled={context.userdata.last_name_spelled}"
+                f"business_name={mask_name(context.userdata.business_name) if context.userdata.business_name else 'None'}, "
+                f"last_name_spelled={mask_name(context.userdata.last_name_spelled) if context.userdata.last_name_spelled else 'None'}"
             )
 
         # Log the routing decision
@@ -1456,8 +1443,8 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             raise ToolError(
                 f"No agent found for payment (VA unavailable, AE fallback failed): "
                 f"insurance_type={context.userdata.insurance_type}, "
-                f"business_name={context.userdata.business_name}, "
-                f"last_name_spelled={context.userdata.last_name_spelled}"
+                f"business_name={mask_name(context.userdata.business_name) if context.userdata.business_name else 'None'}, "
+                f"last_name_spelled={mask_name(context.userdata.last_name_spelled) if context.userdata.last_name_spelled else 'None'}"
             )
 
         # Log the routing decision for AE fallback
@@ -1522,8 +1509,8 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             logger.warning("No agent found for 'something else' transfer")
             raise ToolError(
                 f"No agent found for 'something else': insurance_type={context.userdata.insurance_type}, "
-                f"business_name={context.userdata.business_name}, "
-                f"last_name_spelled={context.userdata.last_name_spelled}"
+                f"business_name={mask_name(context.userdata.business_name) if context.userdata.business_name else 'None'}, "
+                f"last_name_spelled={mask_name(context.userdata.last_name_spelled) if context.userdata.last_name_spelled else 'None'}"
             )
 
         # Log the routing decision

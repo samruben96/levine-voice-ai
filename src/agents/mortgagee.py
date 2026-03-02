@@ -18,7 +18,7 @@ from staff_directory import (
     find_agent_by_alpha,
     get_alpha_route_key,
 )
-from utils import format_email_for_speech
+from utils import format_email_for_speech, mask_name
 
 logger = logging.getLogger("agent")
 
@@ -176,11 +176,11 @@ class MortgageeCertificateAgent(Agent):
         if insurance_type.lower() == "business":
             context.userdata.insurance_type = InsuranceType.BUSINESS
             context.userdata.business_name = identifier
-            logger.info(f"Certificate - recorded business: {identifier}")
+            logger.info(f"Certificate - recorded business: {mask_name(identifier)}")
         else:
             context.userdata.insurance_type = InsuranceType.PERSONAL
             context.userdata.last_name_spelled = identifier
-            logger.info(f"Certificate - recorded personal, last name: {identifier}")
+            logger.info(f"Certificate - recorded personal: {mask_name(identifier)}")
 
         return "Got it. Let me connect you with your Account Executive now."
 
@@ -247,7 +247,7 @@ class MortgageeCertificateAgent(Agent):
 
         logger.info(
             f"[MOCK TRANSFER] Certificate transfer to {agent_name} (ext {agent_ext}) "
-            f"for {department} client: {identifier}"
+            f"for {department} client: {mask_name(identifier) if identifier else 'unknown'}"
         )
 
         userdata.assigned_agent = agent_name

@@ -148,7 +148,7 @@ class BaseRoutingAgent(Agent):
             f"name={mask_name(userdata.name) if userdata.name else 'unknown'}, ",
             f"phone={mask_phone(userdata.phone_number) if userdata.phone_number else 'unknown'}, ",
             f"type={userdata.insurance_type}, ",
-            f"business={userdata.business_name}, ",
+            f"business={mask_name(userdata.business_name) if userdata.business_name else 'unknown'}, ",
             f"last_name={mask_name(userdata.last_name_spelled) if userdata.last_name_spelled else 'unknown'}",
         ]
 

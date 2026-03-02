@@ -39,15 +39,9 @@ CARRIER_CLAIMS_NUMBERS: dict[str, str] = {
     "Auto-Owners": "1-800-346-0346",
     "Erie": "1-800-367-3743",
     "Safeco": "1-800-332-3226",
-    #
-    # Florida regional carriers (PLACEHOLDER numbers - need real numbers)
-    "Citizens": "1-800-555-0101",  # Placeholder - verify before production
-    "Florida Peninsula": "1-800-555-0102",  # Placeholder - verify before production
-    "Universal Property": "1-800-555-0103",  # Placeholder - verify before production
-    "Tower Hill": "1-800-555-0104",  # Placeholder - verify before production
-    "Heritage": "1-800-555-0105",  # Placeholder - verify before production
-    "People's Trust": "1-800-555-0106",  # Placeholder - verify before production
-    "Security First": "1-800-555-0107",  # Placeholder - verify before production
+    # TODO (HIGH PRIORITY - Needs Client Input): Add real claims numbers for Florida
+    # regional carriers: Citizens, Florida Peninsula, Universal Property, Tower Hill,
+    # Heritage, People's Trust, Security First. These are critical for this FL agency.
 }
 
 

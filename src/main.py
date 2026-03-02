@@ -83,11 +83,12 @@ def prewarm(proc: JobProcess) -> None:
     validate_environment()
 
     # Load VAD model with optimized latency parameters
-    # - min_silence_duration: Reduced from 0.55s default for faster turn detection
+    # - min_silence_duration: Tuned to 0.4s (default 0.55s) balancing turn detection speed
+    #   with false-interruption avoidance (increased from 0.3s)
     # - min_speech_duration: Keep default - minimum speech to start chunk
     # - activation_threshold: Keep default - speech detection sensitivity
     proc.userdata["vad"] = silero.VAD.load(
-        min_silence_duration=0.3,
+        min_silence_duration=0.4,
         min_speech_duration=0.05,
         activation_threshold=0.5,
     )
@@ -215,7 +216,9 @@ async def my_agent(ctx: JobContext) -> None:
 
     @session.on("user_input_transcribed")
     def _on_user_input(ev):
-        logger.info(f"User said: {ev.transcript}")
+        logger.debug(
+            f"User input: words={len(ev.transcript.split()) if ev.transcript else 0}"
+        )
 
     @session.on("conversation_item_added")
     def _on_conversation_item(ev):

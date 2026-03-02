@@ -219,11 +219,8 @@ def log_route_decision(
     intent_str = intent.value if hasattr(intent, "value") else (intent or "None")
     type_str = insurance_type.value if hasattr(insurance_type, "value") else "None"
 
-    # Mask personal identifiers (last names) but not business names
-    if identifier and is_personal:
-        masked_id = mask_name(identifier)
-    else:
-        masked_id = identifier or "None"
+    # Mask all identifiers (both personal and business names are tied to specific calls)
+    masked_id = mask_name(identifier) if identifier else "None"
 
     logger.info(
         f"ROUTE_DECISION: intent={intent_str} | agent={agent or 'None'} | "

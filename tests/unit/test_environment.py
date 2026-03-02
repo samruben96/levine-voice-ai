@@ -56,21 +56,18 @@ class TestEnvironmentValidation:
             validate_environment()
 
     def test_validate_environment_empty_values(self):
-        """Test with empty string values (should count as missing)."""
+        """Test with empty string values - documents actual behavior."""
         env = {
             "LIVEKIT_URL": "",
             "LIVEKIT_API_KEY": "",
             "LIVEKIT_API_SECRET": "",
         }
         with patch.dict(os.environ, env, clear=True):
-            # Empty values might be treated as present or missing
-            # depending on implementation - test documents actual behavior
-            import contextlib
-
-            with contextlib.suppress(RuntimeError):
+            # Empty strings are treated as missing by os.getenv() truth check
+            # validate_environment uses `not os.getenv(v)` which is falsy for ""
+            with pytest.raises(RuntimeError) as exc_info:
                 validate_environment()
-                # If it doesn't raise, empty strings are accepted
-                # If it raises, empty strings are treated as missing
+            assert "Missing required environment variables" in str(exc_info.value)
 
     def test_validate_environment_whitespace_values(self):
         """Test with whitespace-only values."""

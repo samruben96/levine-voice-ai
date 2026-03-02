@@ -204,7 +204,8 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
                 f"Is there anything else I can help you with?"
             )
         else:
-            logger.info(f"Claims lookup - Carrier not found: {carrier_name}")
+            safe_name = carrier_name[:50] if carrier_name else "empty"
+            logger.info(f"Claims lookup - Carrier not found: {safe_name}")
             return (
                 f"I'm sorry, I don't have the claims number for {carrier_name} in my system. "
                 f"You should be able to find their 24/7 claims number on your insurance card "
@@ -284,9 +285,10 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
             f"description={brief_description or 'not provided'}"
         )
 
+        last4 = phone_number[-4:] if len(phone_number) >= 4 else phone_number
         return (
-            f"I've noted your information, {caller_name}. "
-            f"Our team will call you back at {phone_number} during business hours, "
+            f"I've noted your information. "
+            f"Our team will call you back at the number ending in {last4} during business hours, "
             f"Monday through Friday, 9 AM to 5 PM. "
             f"Is there anything else I can help you with in the meantime?"
         )

@@ -569,8 +569,8 @@ def is_transferable(agent_name: str) -> bool:
             # Default to True if not explicitly set
             return True
 
-    # If agent not found, assume transferable (shouldn't happen in practice)
-    return True
+    # If agent not found, fail closed (deny transfer for unknown agents)
+    return False
 
 
 def get_agents_by_name_prefix(name: str) -> list[StaffMember]:
