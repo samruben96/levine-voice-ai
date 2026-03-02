@@ -1,6 +1,6 @@
 """Update dispatch rule to add phone number via LiveKit API."""
 import asyncio
-import os
+
 from dotenv import load_dotenv
 from livekit import api
 

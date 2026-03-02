@@ -10,9 +10,9 @@ import sys
 import pytest
 
 sys.path.insert(0, "src")
+
 from models import CallIntent, InsuranceType
 from utils import log_route_decision
-
 
 # =============================================================================
 # ENUM INPUT TESTS

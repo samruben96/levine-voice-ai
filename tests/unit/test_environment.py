@@ -65,12 +65,12 @@ class TestEnvironmentValidation:
         with patch.dict(os.environ, env, clear=True):
             # Empty values might be treated as present or missing
             # depending on implementation - test documents actual behavior
-            try:
+            import contextlib
+
+            with contextlib.suppress(RuntimeError):
                 validate_environment()
                 # If it doesn't raise, empty strings are accepted
-            except RuntimeError:
                 # If it raises, empty strings are treated as missing
-                pass
 
     def test_validate_environment_whitespace_values(self):
         """Test with whitespace-only values."""
