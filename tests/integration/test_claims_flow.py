@@ -305,15 +305,15 @@ async def test_claims_intent_detection_fire_damage() -> None:
 
                 The response should:
                 - Express concern (e.g., "I'm sorry to hear that")
-                - Ask if they're okay OR indicate connecting to claims team
+                - Ask if they're okay OR indicate connecting someone who can help with the claim
                 - Be supportive
 
                 The response should NOT:
                 - Be completely devoid of empathy
                 - Be dismissive
 
-                Note: Brief empathy followed by immediate handoff to claims
-                team is acceptable and preferred over lengthy responses.
+                Note: Brief empathy followed by immediate handoff to someone who can help
+                is acceptable and preferred over lengthy responses.
                 """,
             )
         )
@@ -328,7 +328,7 @@ async def test_claims_intent_detection_fire_damage() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_claims_empathy_shown() -> None:
-    """Evaluation: Agent should show empathy and immediately hand off to claims team."""
+    """Evaluation: Agent should show empathy and immediately connect caller with a claims handler."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -352,7 +352,7 @@ async def test_claims_empathy_shown() -> None:
 
                 The response should:
                 - Express concern or sympathy (e.g., "I'm sorry to hear that")
-                - Ask if they're okay OR indicate connecting to claims team
+                - Ask if they're okay OR indicate connecting to someone who can help with the claim
                 - Be supportive
 
                 The response should NOT:
@@ -451,11 +451,11 @@ async def test_claims_during_business_hours_initiates_transfer() -> None:
             .judge(
                 llm,
                 intent="""
-                Shows empathy and indicates transfer to claims team.
+                Shows empathy and indicates connecting to someone who can help with the claim.
 
                 The response should:
                 - Express empathy (e.g., "I'm sorry to hear that")
-                - Indicate connecting to claims team OR ask if they're okay
+                - Indicate connecting to a claims handler OR ask if they're okay
                 - Be warm and supportive
 
                 The response should NOT:
@@ -625,7 +625,7 @@ async def test_claims_unknown_carrier_provides_guidance() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_claims_business_insurance_context_detection() -> None:
-    """Evaluation: Claims should show empathy and immediately hand off to claims team."""
+    """Evaluation: Claims should show empathy and immediately connect caller with a claims handler."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -645,11 +645,11 @@ async def test_claims_business_insurance_context_detection() -> None:
             .judge(
                 llm,
                 intent="""
-                Shows empathy and connects to claims team.
+                Shows empathy and connects to someone who can help with the claim.
 
                 The response should:
                 - Show concern about the accident
-                - Indicate connecting to claims team OR ask if they're okay
+                - Indicate connecting to a claims handler OR ask if they're okay
                 - Be helpful and supportive
 
                 Note: Immediate handoff to ClaimsAgent is acceptable - context
@@ -663,7 +663,7 @@ async def test_claims_business_insurance_context_detection() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_claims_personal_insurance_context_detection() -> None:
-    """Evaluation: Claims should show empathy and immediately hand off to claims team."""
+    """Evaluation: Claims should show empathy and immediately connect caller with a claims handler."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -683,11 +683,11 @@ async def test_claims_personal_insurance_context_detection() -> None:
             .judge(
                 llm,
                 intent="""
-                Shows empathy and connects to claims team.
+                Shows empathy and connects to someone who can help with the claim.
 
                 The response should:
                 - Express concern about being rear-ended
-                - Indicate connecting to claims team OR ask if they're okay
+                - Indicate connecting to a claims handler OR ask if they're okay
                 - Be warm and supportive
 
                 Note: Immediate handoff to ClaimsAgent is acceptable - context

@@ -63,7 +63,7 @@ class ClaimsAgent(Agent):
             # without LLM involvement. These instructions are minimal fallback.
             instructions = compose_instructions(
                 "You are Aizellee, handling a claims call during business hours.",
-                "The caller has been connected to the claims team. Stay silent unless they speak to you.",
+                "The caller has been connected to handle the claim. Stay silent unless they speak to you.",
                 SECURITY_INSTRUCTIONS,
             )
         else:
@@ -109,7 +109,14 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
                 await self._execute_claims_transfer_silent()
             else:
                 # Fallback for direct entry (not via handoff)
-                await self._execute_claims_transfer()
+                # Check if contact info is collected before transferring
+                userdata = self.session.userdata
+                if not userdata.name or not userdata.phone_number:
+                    await self.session.generate_reply(
+                        instructions="Before transferring, ask: 'Before I connect you, can I get your name and a good phone number?' Collect both, then stay silent."
+                    )
+                else:
+                    await self._execute_claims_transfer()
         else:
             # After-hours: LLM handles carrier lookup
             await self.session.generate_reply(
@@ -140,7 +147,7 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
         )
 
         # Speak the hold message only - Assistant already expressed empathy and
-        # mentioned connecting to claims team
+        # mentioned connecting to handle the claim
         await session.say(
             f"Please stay on the line. {HOLD_MESSAGE}",
             allow_interruptions=False,
@@ -239,7 +246,7 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
 
         # Speak the transfer message
         await context.session.say(
-            f"I'm connecting you with our claims team now. {HOLD_MESSAGE}",
+            f"I'm connecting you with someone who can help with your claim now. {HOLD_MESSAGE}",
             allow_interruptions=False,
         )
 
@@ -258,7 +265,7 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
         phone_number: str,
         brief_description: str = "",
     ) -> str:
-        """Request a callback from the claims team during business hours.
+        """Request a callback from our office during business hours.
 
         Call this when the caller wants to be called back instead of contacting
         their carrier directly.

@@ -185,9 +185,9 @@ class TestFindAgentByAlpha:
             assert agent["department"] == "PL-Account Executive"
 
     # Commercial Lines (Account Executives handle both)
-    def test_cl_a_to_f(self) -> None:
-        """Test CL routes to Adriana for A-F."""
-        for letter in "ABCDEF":
+    def test_cl_a_to_l(self) -> None:
+        """Test CL routes to Adriana for A-L."""
+        for letter in "ABCDEFGHIJKL":
             # Test new business
             agent = find_agent_by_alpha(letter, "CL", is_new_business=True)
             assert agent is not None, f"No agent found for letter {letter}"
@@ -199,20 +199,12 @@ class TestFindAgentByAlpha:
             assert agent is not None
             assert agent["name"] == "Adriana"
 
-    def test_cl_g_to_o(self) -> None:
-        """Test CL routes to Rayvon for G-O."""
-        for letter in "GHIJKLMNO":
+    def test_cl_m_to_z(self) -> None:
+        """Test CL routes to Rayvon for M-Z."""
+        for letter in "MNOPQRSTUVWXYZ":
             agent = find_agent_by_alpha(letter, "CL", is_new_business=True)
             assert agent is not None, f"No agent found for letter {letter}"
             assert agent["name"] == "Rayvon"
-            assert agent["department"] == "CL-Account Executive"
-
-    def test_cl_p_to_z(self) -> None:
-        """Test CL routes to Dionna for P-Z."""
-        for letter in "PQRSTUVWXYZ":
-            agent = find_agent_by_alpha(letter, "CL", is_new_business=True)
-            assert agent is not None, f"No agent found for letter {letter}"
-            assert agent["name"] == "Dionna"
             assert agent["department"] == "CL-Account Executive"
 
     def test_lowercase_letter_input(self) -> None:
@@ -256,7 +248,6 @@ class TestIsTransferable:
         """Test that regular agents can receive transfers."""
         assert is_transferable("Adriana") is True
         assert is_transferable("Rayvon") is True
-        assert is_transferable("Dionna") is True
         assert is_transferable("Rachel Moreno") is True
         assert is_transferable("Brad") is True
 
@@ -264,9 +255,9 @@ class TestIsTransferable:
         """Test Julie L. who has explicit transferable=True."""
         assert is_transferable("Julie L.") is True
 
-    def test_unknown_agent_defaults_to_transferable(self) -> None:
-        """Test that unknown agents default to transferable."""
-        assert is_transferable("Unknown Person") is True
+    def test_unknown_agent_fails_closed(self) -> None:
+        """Test that unknown agents fail closed (not transferable)."""
+        assert is_transferable("Unknown Person") is False
 
     def test_management_transferability(self) -> None:
         """Test management team transfer status."""
@@ -339,8 +330,10 @@ class TestGetAgentByExtension:
         assert agent["name"] == "Jason L."
 
     def test_all_extensions_unique(self) -> None:
-        """Verify all extensions in directory return unique agents."""
-        extensions = [staff["ext"] for staff in STAFF_DIRECTORY["staff"]]
+        """Verify all non-empty extensions in directory return unique agents."""
+        extensions = [
+            staff["ext"] for staff in STAFF_DIRECTORY["staff"] if staff.get("ext")
+        ]
         for ext in extensions:
             agent = get_agent_by_extension(ext)
             assert agent is not None
@@ -393,9 +386,9 @@ class TestGetAgentsByDepartment:
     def test_cl_account_executives(self) -> None:
         """Test getting all CL Account Executives."""
         agents = get_agents_by_department("CL-Account Executive")
-        assert len(agents) == 3
+        assert len(agents) == 2
         names = {agent["name"] for agent in agents}
-        assert names == {"Adriana", "Rayvon", "Dionna"}
+        assert names == {"Adriana", "Rayvon"}
 
     def test_pl_sales_agents(self) -> None:
         """Test getting all PL Sales Agents."""
@@ -461,7 +454,7 @@ class TestIntegrationScenarios:
 
         agent = find_agent_by_alpha(letter, "CL", is_new_business=True)
         assert agent is not None
-        assert agent["name"] == "Rayvon"  # G-O range
+        assert agent["name"] == "Adriana"  # A-L range (G is in this range)
 
     def test_law_office_routing(self) -> None:
         """Test routing for law office with prefix exception."""
@@ -471,7 +464,7 @@ class TestIntegrationScenarios:
 
         agent = find_agent_by_alpha(letter, "CL", is_new_business=True)
         assert agent is not None
-        assert agent["name"] == "Rayvon"  # G-O range (H is in this range)
+        assert agent["name"] == "Adriana"  # A-L range (H is in this range)
 
     def test_transfer_to_specific_agent_by_name(self) -> None:
         """Test looking up a specific agent by name for transfer."""
@@ -591,10 +584,11 @@ class TestEdgeCases:
 
     def test_is_transferable_partial_name_match(self) -> None:
         """Test is_transferable with partial name that doesn't match restricted."""
-        # "Jason" alone should not match "Jason L." in restricted list
-        # But get_agent_by_name will find Jason L.
-        # is_transferable should check exact match on restricted list
-        assert is_transferable("Jason") is True  # Not in restricted list directly
+        # "Jason" alone does not match "Jason L." in restricted list
+        # but the staff entry for Jason L. has transferable=False, so returns False
+        assert (
+            is_transferable("Jason") is False
+        )  # Matches Jason L. via prefix; transferable=False
         assert is_transferable("Jason L.") is False  # In restricted list
 
     def test_get_agents_by_department_nonexistent(self) -> None:

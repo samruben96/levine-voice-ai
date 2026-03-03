@@ -2165,7 +2165,7 @@ async def test_cancellation_business_transfer_to_correct_ae() -> None:
         await session.run(user_input="I want to cancel my business insurance")
         await session.run(user_input="Business")
 
-        # Provide business name starting with 'A' -> should route to Adriana (A-F)
+        # Provide business name starting with 'A' -> should route to Adriana (A-L)
         result = await session.run(user_input="Acme Construction LLC")
 
         # Skip all function calls
@@ -2183,7 +2183,7 @@ async def test_cancellation_business_transfer_to_correct_ae() -> None:
                 Progresses the cancellation request appropriately.
 
                 The response should do ONE of these:
-                1. Indicate transfer/connection to Account Executive (may mention Adriana for A-F)
+                1. Indicate transfer/connection to Account Executive (may mention Adriana for A-L)
                 2. Acknowledge the business name and indicate someone will help
                 3. Ask for contact info to proceed with the request
 
@@ -3100,7 +3100,7 @@ async def test_coverage_rate_business_transfer_to_ae() -> None:
         await session.run(user_input="I have questions about our commercial coverage")
         await session.run(user_input="Business")
 
-        # Provide business name starting with 'A' (routes to Adriana A-F per alpha-split)
+        # Provide business name starting with 'A' (routes to Adriana A-L per alpha-split)
         result = await session.run(user_input="Acme Construction LLC")
 
         # Skip all function calls
@@ -3116,7 +3116,7 @@ async def test_coverage_rate_business_transfer_to_ae() -> None:
                 llm,
                 intent="""
                 The response should either:
-                1. Indicate transfer/connection to an Account Executive (may mention Adriana for A-F), OR
+                1. Indicate transfer/connection to an Account Executive (may mention Adriana for A-L), OR
                 2. Acknowledge the business name and indicate someone will help, OR
                 3. Offer to connect them with someone who can answer their coverage question
 
@@ -3307,7 +3307,7 @@ async def test_something_else_business_transfer_to_correct_ae() -> None:
         )
         await session.run(user_input="Business")
 
-        # Provide business name starting with 'H' -> should route to Rayvon (G-O)
+        # Provide business name starting with 'H' -> should route to Adriana (A-L)
         result = await session.run(user_input="Happy Trucking LLC")
 
         # Skip all function calls
@@ -3325,7 +3325,7 @@ async def test_something_else_business_transfer_to_correct_ae() -> None:
                 Progresses the request appropriately.
 
                 The response should do ONE of these:
-                1. Indicate transfer/connection to Account Executive (may mention Rayvon for G-O)
+                1. Indicate transfer/connection to Account Executive (may mention Adriana for A-L)
                 2. Acknowledge the business name and indicate someone will help
                 3. Ask for more details about what they need help with
                 4. Ask what they're calling about to relay to the Account Executive
@@ -6380,7 +6380,7 @@ class TestAfterHoursVoicemailFlow:
         ):
             await session.start(Assistant(business_hours_context=after_hours_context))
 
-            # Complete flow for business insurance - "Acme" starts with A (routes to Adriana A-F)
+            # Complete flow for business insurance - "Acme" starts with A (routes to Adriana A-L)
             await session.run(user_input="I need to discuss our company's policy")
             await session.run(user_input="Mike Wilson, 555-777-8888")
             await session.run(user_input="Business")
@@ -6402,7 +6402,7 @@ class TestAfterHoursVoicemailFlow:
                     Routes to voicemail for Commercial Lines Account Executive.
 
                     The response should either:
-                    - Mention Adriana (the CL-AE for A-F), OR
+                    - Mention Adriana (the CL-AE for A-L), OR
                     - Indicate transfer to commercial lines agent/voicemail, OR
                     - Confirm message will be delivered to the right business insurance team
 

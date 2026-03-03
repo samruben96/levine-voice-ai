@@ -147,6 +147,8 @@ class MortgageeCertificateAgent(Agent):
             cert_email = format_email_for_speech("Certificate@hlinsure.com")
             return (
                 f"You can email your certificate request to {cert_email} "
+                "You can also issue your own certificates through the portal on our website at "
+                "harry levine insurance dot com. "
                 "Is there anything else I can help you with today?"
             )
         else:
@@ -155,7 +157,7 @@ class MortgageeCertificateAgent(Agent):
             )
             return (
                 "No problem, let me get you over to an agent that can help you with that. "
-                "Is this for business or personal insurance?"
+                "What is the name of the business on the certificate?"
             )
 
     @function_tool
@@ -195,8 +197,8 @@ class MortgageeCertificateAgent(Agent):
         and identifier (business_name or last_name_spelled).
 
         Routes to Account Executives via alpha-split:
-        - Business (CL): A-F -> Adriana, G-O -> Rayvon, P-Z -> Dionna
-        - Personal (PL): A-G -> Yarislyn, H-M -> Al, N-Z -> Luis
+        - Business (CL): A-L -> Adriana, M-Z -> Rayvon
+        - Personal (PL): A-G -> Yarislyn, H-M -> Al, N-Z -> Louis
         """
         userdata = context.userdata
 
@@ -242,7 +244,7 @@ class MortgageeCertificateAgent(Agent):
                 "Can you please hold while I find someone to help?"
             )
 
-        agent_name = agent.get("name", "an agent")
+        agent_name = agent.get("pronunciation", agent.get("name", "an agent"))
         agent_ext = agent.get("ext", "unknown")
 
         logger.info(

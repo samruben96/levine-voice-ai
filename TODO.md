@@ -75,7 +75,7 @@
   - [x] Create `MakeChangeAgent` class with business/personal flow
   - [x] Add `route_call_policy_change` handoff in Assistant
   - [x] Smart context detection (e.g., "work truck" auto-infers business insurance)
-  - [x] Alpha-split routing to Account Executives (PL: Yarislyn A-G, Al H-M, Luis N-Z; CL: Adriana A-F, Rayvon G-O, Dionna P-Z)
+  - [x] Alpha-split routing to Account Executives (PL: Yarislyn A-G, Al H-M, Louis N-Z; CL: Adriana A-L, Rayvon M-Z)
   - [x] Fallback/hold handling placeholder with data sheet callback
   - [x] Write tests for policy change flow (14 new tests)
 
@@ -96,8 +96,8 @@
   - [x] Add `route_call_coverage_rate` handoff in Assistant
   - [x] Smart context detection for business/personal insurance
   - [x] Alpha-split routing to Account Executives ONLY (NOT VAs/CSRs - requires licensed professionals)
-    - Personal Lines: Yarislyn (A-G), Al (H-M), Luis (N-Z)
-    - Commercial Lines: Adriana (A-F), Rayvon (G-O), Dionna (P-Z)
+    - Personal Lines: Yarislyn (A-G), Al (H-M), Louis (N-Z)
+    - Commercial Lines: Adriana (A-L), Rayvon (M-Z)
   - [x] Data sheet fallback for callbacks when AE unavailable
   - [x] Write tests for coverage/rate flow (16 new tests - all passing)
 
@@ -108,8 +108,8 @@
   - [x] `record_request_summary()` tool to capture what the caller needs (stored in `additional_notes`)
   - [x] Smart context detection for business/personal insurance
   - [x] Alpha-split routing to Account Executives (same as MakeChange/Cancellation):
-    - Personal Lines: Yarislyn (A-G), Al (H-M), Luis (N-Z)
-    - Commercial Lines: Adriana (A-F), Rayvon (G-O), Dionna (P-Z)
+    - Personal Lines: Yarislyn (A-G), Al (H-M), Louis (N-Z)
+    - Commercial Lines: Adriana (A-L), Rayvon (M-Z)
   - [x] **WARM TRANSFER** with context relay:
     - Logs warm transfer intro: "Hi [Agent Name], I have [Caller Name] on the line. They're calling about [summary]."
     - Passes caller context (name, phone, insurance type, summary) to receiving agent
@@ -202,8 +202,8 @@
   - Collects name, phone, business/personal, identifier (business name or spelled last name)
   - Offers voicemail transfer to appropriate agent
 - [x] Implement `transfer_to_voicemail` function with alpha-split routing
-  - Personal Lines: A-G → Yarislyn, H-M → Al, N-Z → Luis (Account Executives)
-  - Commercial Lines: A-F → Adriana, G-O → Rayvon, P-Z → Dionna (Account Executives)
+  - Personal Lines: A-G → Yarislyn, H-M → Al, N-Z → Louis (Account Executives)
+  - Commercial Lines: A-L → Adriana, M-Z → Rayvon (Account Executives)
   - Routes to Account Executives (not sales agents) since existing clients call after hours
 - [x] Update Assistant with `on_enter` method for automatic after-hours detection
   - Uses `_is_after_hours` flag (testable via `is_after_hours` parameter)

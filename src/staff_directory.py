@@ -9,7 +9,7 @@ Routing Rules:
 1. Commercial Lines (CL) Alpha-Split Routing:
    - New business AND existing client inquiries are handled by CL Account Executives
    - Routing is based on the BUSINESS NAME's first letter (after handling exceptions)
-   - Alpha ranges: A-F (Adriana), G-O (Rayvon), P-Z (Dionna)
+   - Alpha ranges: A-L (Adriana), M-Z (Rayvon)
    - Platinum clients go to Rachel T. (CL Department Manager)
 
 2. Personal Lines (PL) Routing:
@@ -81,6 +81,7 @@ class StaffMember(TypedDict, total=False):
     timeBlock: str | None
     transferable: bool
     languages: list[str]  # e.g., ["en", "es"]
+    pronunciation: str  # Phonetic/display name for TTS (e.g., "Al" for "Alberto")
 
 
 class RingGroup(TypedDict):
@@ -112,23 +113,16 @@ STAFF_DIRECTORY: StaffDirectoryConfig = {
         {
             "department": "CL-Account Executive",
             "name": "Adriana",
-            "assigned": "A-F",
+            "assigned": "A-L",
             "ext": "7002",
             "timeBlock": "1:00-2:00",
         },
         {
             "department": "CL-Account Executive",
             "name": "Rayvon",
-            "assigned": "G-O",
+            "assigned": "M-Z",
             "ext": "7018",
             "timeBlock": "9:00-10:00",
-        },
-        {
-            "department": "CL-Account Executive",
-            "name": "Dionna",
-            "assigned": "P-Z",
-            "ext": "7006",
-            "timeBlock": "2:00-3:00",
         },
         {
             "department": "CL-Department Manager",
@@ -197,6 +191,7 @@ STAFF_DIRECTORY: StaffDirectoryConfig = {
             "ext": "7017",
             "timeBlock": "10:00-11:00",
             "languages": ["en", "es"],
+            "pronunciation": "Lewis",
         },
         {
             "department": "PL-Sales Agent",
@@ -233,6 +228,13 @@ STAFF_DIRECTORY: StaffDirectoryConfig = {
             "assigned": "",
             "ext": "7012",
             "timeBlock": None,
+            "transferable": False,
+        },
+        {
+            "department": "Staff",
+            "name": "Debi",
+            "assigned": "",
+            "ext": "",
             "transferable": False,
         },
     ],
@@ -350,10 +352,10 @@ def find_agent_by_alpha(
         >>> # Personal Lines, existing client, last name starts with 'S'
         >>> agent = find_agent_by_alpha("S", "PL", is_new_business=False)
         >>> agent["name"] if agent else None
-        'Luis'
+        'Louis'
 
-        >>> # Commercial Lines, business name starts with 'H'
-        >>> agent = find_agent_by_alpha("H", "CL", is_new_business=True)
+        >>> # Commercial Lines, business name starts with 'M'
+        >>> agent = find_agent_by_alpha("M", "CL", is_new_business=True)
         >>> agent["name"] if agent else None
         'Rayvon'
     """
@@ -715,7 +717,7 @@ def get_agents_by_department(department: str) -> list[StaffMember]:
     Examples:
         >>> agents = get_agents_by_department("CL-Account Executive")
         >>> len(agents)
-        3
+        2
         >>> agents = get_agents_by_department("Management")
         >>> len(agents)
         3

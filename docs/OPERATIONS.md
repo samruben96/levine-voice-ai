@@ -175,9 +175,8 @@ Each staff member is defined with the following fields:
 | Department | Name | Assigned | Extension | Time Block | Transferable |
 |------------|------|----------|-----------|------------|--------------|
 | Agency Support | Anamer L. | Agency Support | 7013 | 12:00-1:00 L | Yes |
-| CL-Account Executive | Adriana | A-F | 7002 | 1:00-2:00 | Yes |
-| CL-Account Executive | Rayvon | G-O | 7018 | 9:00-10:00 | Yes |
-| CL-Account Executive | Dionna | P-Z | 7006 | 2:00-3:00 | Yes |
+| CL-Account Executive | Adriana | A-L | 7002 | 1:00-2:00 | Yes |
+| CL-Account Executive | Rayvon | M-Z | 7018 | 9:00-10:00 | Yes |
 | CL-Department Manager | Rachel T. | Platinum | 7005 | 1:00-2:00 | Yes |
 | CL-Producer | Kevin K. | Producer | 7003 | - | Yes |
 | CL-Service | Stephanie | CSR | 7014 | 2:00-3:00 L | Yes |
@@ -186,7 +185,7 @@ Each staff member is defined with the following fields:
 | Management | Kelly U. | Manager, Operations | 7009 | 4:00-5:00 | Yes |
 | PL-Account Executive | Yarislyn | A-G | 7011 | 11:00-12:00 | Yes |
 | PL-Account Executive | Al | H-M | 7015 | 9:00-10:00 | Yes |
-| PL-Account Executive | Luis | N-Z | 7017 | 10:00-11:00 | Yes |
+| PL-Account Executive | Louis | N-Z | 7017 | 10:00-11:00 | Yes |
 | PL-Sales Agent | Rachel Moreno | A-L | 7010 | - | Yes |
 | PL-Sales Agent | Brad | M-Z | 7007 | - | Yes |
 | PL-Service | Ann | CSR | 7016 | 1:00-2:00 L | Yes |
@@ -234,8 +233,8 @@ When changing alpha ranges, ensure:
 - **Consistency**: CL and PL have different routing structures
 
 Example: To move "H" from Rayvon to Adriana in CL:
-- Change Adriana's assigned from "A-F" to "A-H"
-- Change Rayvon's assigned from "G-O" to "I-O"
+- Change Adriana's assigned from "A-L" to "A-H"
+- Change Rayvon's assigned from "M-Z" to "I-Z"
 
 ---
 
@@ -247,9 +246,8 @@ Commercial Lines uses a single alpha-split across Account Executives. Both new b
 
 | Alpha Range | Agent | Extension |
 |-------------|-------|-----------|
-| A-F | Adriana | 7002 |
-| G-O | Rayvon | 7018 |
-| P-Z | Dionna | 7006 |
+| A-L | Adriana | 7002 |
+| M-Z | Rayvon | 7018 |
 | Platinum | Rachel T. | 7005 |
 
 **Routing key**: First letter of the business name (after handling exception prefixes).
@@ -271,7 +269,7 @@ Personal Lines has separate routing for new business vs. existing clients.
 |-------------|-------|-----------|
 | A-G | Yarislyn | 7011 |
 | H-M | Al | 7015 |
-| N-Z | Luis | 7017 |
+| N-Z | Louis | 7017 |
 
 **Routing key**: First letter of the caller's last name.
 

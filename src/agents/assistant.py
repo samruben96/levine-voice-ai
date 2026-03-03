@@ -14,7 +14,6 @@ from agents.claims import ClaimsAgent
 from agents.mortgagee import MortgageeCertificateAgent
 from business_hours import (
     format_business_hours_prompt,
-    get_next_open_time,
     is_lunch_hour,
     is_office_open,
 )
@@ -299,7 +298,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         # Speak the COMPLETE transfer message here (deterministic, not LLM)
         # This is the ONLY speech for claims handoff - ClaimsAgent will be silent
         await context.session.say(
-            f"I'm so sorry to hear about that. Let me connect you with our claims team now. {HOLD_MESSAGE}",
+            f"I'm so sorry to hear about that. Let me connect you with someone who can help with your claim. {HOLD_MESSAGE}",
             allow_interruptions=False,
         )
 
@@ -626,7 +625,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             ),
             "claims": (
                 CallIntent.CLAIMS,
-                "I'll connect you with our claims department.",
+                "I'll connect you with someone who can help with your claim.",
             ),
             "other": (
                 CallIntent.SOMETHING_ELSE,
@@ -662,21 +661,11 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         """
         context.userdata.call_intent = CallIntent.HOURS_LOCATION
         logger.info(f"Providing hours/location info: {context.userdata.to_safe_log()}")
-
-        # Generate contextual response based on current business hours status
-        if is_office_open():
-            hours_info = "We're open right now until 5 PM"
-        elif is_lunch_hour():
-            hours_info = "We're on our lunch break right now, but we'll be back at 1 PM"
-        else:
-            next_open = get_next_open_time()
-            hours_info = f"We're currently closed, but we'll reopen {next_open}"
-
         return (
-            f"{hours_info}. "
-            "Our regular hours are Monday through Friday, 9 AM to 5 PM Eastern, "
+            "Our office hours are Monday through Friday, 9 AM to 5 PM Eastern, "
             "and we're closed from 12 to 1 for lunch. "
-            "We're located at 7208 West Sand Lake Road, Suite 206, Orlando, Florida 32819."
+            "We're located at 7208 West Sand Lake Road, Suite 206, Orlando, Florida 32819. "
+            "Is there anything else I can help you with, or would you like to schedule an appointment?"
         )
 
     @function_tool
@@ -923,7 +912,12 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
 
         # Speak the transfer message and wait for it to finish
         # Using allow_interruptions=False ensures the full message plays
-        transfer_message = f"I'm connecting you with {agent_name} now. {HOLD_MESSAGE}"
+        display_name = (
+            agent.get("pronunciation", agent.get("name", "an agent"))
+            if isinstance(agent, dict)
+            else agent
+        )
+        transfer_message = f"I'm connecting you with {display_name} now. {HOLD_MESSAGE}"
         await context.session.say(transfer_message, allow_interruptions=False)
 
         # TODO: Implement actual SIP transfer logic using agent["ext"]
@@ -1103,8 +1097,8 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         - Empathy should already have been expressed
 
         Routes to Account Executives via alpha-split:
-        - Business (CL): A-F -> Adriana, G-O -> Rayvon, P-Z -> Dionna
-        - Personal (PL): A-G -> Yarislyn, H-M -> Al, N-Z -> Luis
+        - Business (CL): A-L -> Adriana, M-Z -> Rayvon
+        - Personal (PL): A-G -> Yarislyn, H-M -> Al, N-Z -> Louis (pronounced Lewis)
 
         Returns:
             Validation error string if requirements not met, None on successful transfer.
@@ -1159,7 +1153,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         - For personal: last_name_spelled must be collected
 
         Routes to Sales Agents via alpha-split (is_new_business=True):
-        - Business (CL): A-F -> Adriana, G-O -> Rayvon, P-Z -> Dionna
+        - Business (CL): A-L -> Adriana, M-Z -> Rayvon
         - Personal (PL): A-L -> Rachel Moreno, M-Z -> Brad
 
         FALLBACK LOGIC (Personal Lines only):
@@ -1285,8 +1279,8 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         - For personal: last_name_spelled must be collected
 
         Routes to Account Executives via alpha-split:
-        - Business (CL): A-F -> Adriana, G-O -> Rayvon, P-Z -> Dionna
-        - Personal (PL): A-G -> Yarislyn, H-M -> Al, N-Z -> Luis
+        - Business (CL): A-L -> Adriana, M-Z -> Rayvon
+        - Personal (PL): A-G -> Yarislyn, H-M -> Al, N-Z -> Louis (pronounced Lewis)
 
         Returns:
             Validation error string if requirements not met, None on successful transfer.
@@ -1342,8 +1336,8 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         - For personal: last_name_spelled must be collected
 
         Routes to Account Executives via alpha-split:
-        - Business (CL): A-F -> Adriana, G-O -> Rayvon, P-Z -> Dionna
-        - Personal (PL): A-G -> Yarislyn, H-M -> Al, N-Z -> Luis
+        - Business (CL): A-L -> Adriana, M-Z -> Rayvon
+        - Personal (PL): A-G -> Yarislyn, H-M -> Al, N-Z -> Louis (pronounced Lewis)
 
         Returns:
             Validation error string if requirements not met, None on successful transfer.
@@ -1483,8 +1477,8 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         - summary: Brief description of caller's request (optional but recommended)
 
         Routes to Account Executives via alpha-split:
-        - Business (CL): A-F -> Adriana, G-O -> Rayvon, P-Z -> Dionna
-        - Personal (PL): A-G -> Yarislyn, H-M -> Al, N-Z -> Luis
+        - Business (CL): A-L -> Adriana, M-Z -> Rayvon
+        - Personal (PL): A-G -> Yarislyn, H-M -> Al, N-Z -> Louis (pronounced Lewis)
 
         Args:
             summary: Brief summary of the caller's request for warm transfer context.

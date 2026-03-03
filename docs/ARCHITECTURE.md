@@ -226,9 +226,8 @@ Both new business AND existing clients route to CL Account Executives based on b
 
 ```
 Business Name First Letter --> Agent
-         A-F              --> Adriana (ext 7002)
-         G-O              --> Rayvon (ext 7018)
-         P-Z              --> Dionna (ext 7006)
+         A-L              --> Adriana (ext 7002)
+         M-Z              --> Rayvon (ext 7018)
        Platinum           --> Rachel T. (ext 7005)
 ```
 
@@ -250,7 +249,7 @@ Service requests route to Account Executives based on caller's last name:
 Last Name First Letter --> Agent
          A-G           --> Yarislyn (ext 7011)
          H-M           --> Al (ext 7015)
-         N-Z           --> Luis (ext 7017)
+         N-Z           --> Louis (ext 7017)
 ```
 
 ### Alpha Exception Prefixes

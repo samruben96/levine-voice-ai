@@ -19,10 +19,10 @@ class TestFormatEmailForSpeech:
         assert "dot com" in result
         assert "spell" in result.lower()
 
-    def test_format_hlinsure_special_case(self):
-        """Test the hlinsure.com special case produces H-L Insure."""
+    def test_format_hlinsure_domain(self):
+        """Test hlinsure.com domain is spelled out completely."""
         result = format_email_for_speech("Certificate@hlinsure.com")
-        assert "H-L Insure" in result
+        assert "H-L-I-N-S-U-R-E" in result
 
     def test_format_empty_string(self):
         """Test empty string returns empty string."""
