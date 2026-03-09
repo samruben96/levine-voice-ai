@@ -295,12 +295,20 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
         )
 
-        # Speak the COMPLETE transfer message here (deterministic, not LLM)
-        # This is the ONLY speech for claims handoff - ClaimsAgent will be silent
-        await context.session.say(
-            f"I'm so sorry to hear about that. Let me connect you with someone who can help with your claim. {HOLD_MESSAGE}",
-            allow_interruptions=False,
-        )
+        # Speak the appropriate message based on office hours
+        if is_office_open():
+            # Business hours: empathy + transfer message
+            await context.session.say(
+                f"I'm so sorry to hear about that. Let me connect you with someone who can help with your claim. {HOLD_MESSAGE}",
+                allow_interruptions=False,
+            )
+        else:
+            # After hours: empathy only — ClaimsAgent will explain we're closed
+            # and offer carrier claims number lookup
+            await context.session.say(
+                "I'm so sorry to hear about that.",
+                allow_interruptions=False,
+            )
 
         # Return just the agent (no tuple) for SILENT handoff
         # The tool already spoke via session.say() above
@@ -389,6 +397,8 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         )
 
         # Hand off to the specialized MortgageeCertificateAgent with conversation context
+        # Set flag so sub-agent skips duplicate acknowledgment
+        context.userdata._handoff_speech_delivered = True
         return MortgageeCertificateAgent(
             request_type="mortgagee",
             chat_ctx=self.chat_ctx.copy(exclude_config_update=True),
@@ -573,81 +583,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         # Hand off to the specialized AfterHoursAgent with conversation context
         return AfterHoursAgent(
             chat_ctx=self.chat_ctx.copy(exclude_config_update=True),
-        ), "Let me connect you with our after-hours system."
-
-    @function_tool
-    async def route_call(
-        self,
-        context: RunContext[CallerInfo],
-        intent: str,
-        reason: str | None = None,
-    ) -> str:
-        """Route call to appropriate department based on caller's intent.
-
-        Call this tool to route the caller based on what they need help with.
-
-        Args:
-            intent: The type of request. Must be one of:
-                - "policy_change" - Caller wants to make changes to their policy
-                - "cancellation" - Caller wants to cancel their policy
-                - "coverage_questions" - Questions about coverage or rates
-                - "policy_review" - Annual policy review or renewal
-                - "mortgagee_lienholder" - Questions about mortgagee/lienholder info
-                - "certificates" - Requests for certificate of insurance
-                - "claims" - Filing or checking on a claim
-                - "other" - Doesn't fit other categories
-            reason: Brief description of the caller's request (required for "other" intent)
-        """
-        intent_map: dict[str, tuple[CallIntent, str]] = {
-            "policy_change": (
-                CallIntent.MAKE_CHANGE,
-                "I'll connect you with an agent who can help you make changes to your policy.",
-            ),
-            "cancellation": (
-                CallIntent.CANCELLATION,
-                "I'll connect you with an agent who can assist with your cancellation request.",
-            ),
-            "coverage_questions": (
-                CallIntent.COVERAGE_RATE_QUESTIONS,
-                "I'll connect you with an agent who can answer your coverage questions.",
-            ),
-            "policy_review": (
-                CallIntent.POLICY_REVIEW_RENEWAL,
-                "I'll connect you with an agent for your policy review.",
-            ),
-            "mortgagee_lienholder": (
-                CallIntent.MORTGAGEE_LIENHOLDERS,
-                "I'll connect you with someone who can help with mortgagee information.",
-            ),
-            "certificates": (
-                CallIntent.CERTIFICATES,
-                "I'll connect you with someone who can help with your certificate request.",
-            ),
-            "claims": (
-                CallIntent.CLAIMS,
-                "I'll connect you with someone who can help with your claim.",
-            ),
-            "other": (
-                CallIntent.SOMETHING_ELSE,
-                "Let me connect you with someone who can help.",
-            ),
-        }
-
-        if intent not in intent_map:
-            intent = "other"
-
-        call_intent, response = intent_map[intent]
-        context.userdata.call_intent = call_intent
-
-        if intent == "other" and reason:
-            context.userdata.additional_notes = reason
-            logger.info(
-                f"Routing call for other reason ({reason}): intent={call_intent}"
-            )
-        else:
-            logger.info(f"Routing call: intent={call_intent}")
-
-        return response
+        ), "One moment please."
 
     @function_tool
     async def provide_hours_and_location(
@@ -700,9 +636,9 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         )
 
         await context.session.say(
-            "We strongly recommend scheduling an appointment to make sure "
-            "your account executive is available when you come in. "
-            "Let me connect you with our service team to get that set up for you.",
+            "While we are available for walk-ins, appointments are strongly recommended "
+            "so enough time can be allotted to review and address any concerns, questions, "
+            "or changes. Let me transfer you to our team so they can help you get that scheduled.",
             allow_interruptions=False,
         )
         await self._initiate_ring_group_transfer(
@@ -755,8 +691,9 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
                     f"Restricted transfer requested: {agent['name']} - offering to take message"
                 )
                 return (
-                    f"{agent['name']} isn't available right now. "
-                    "Can I take a message for them?"
+                    f"{agent.get('pronunciation', agent['name'])} isn't available for a direct transfer right now. "
+                    "I can take a message for them, or would you like me to connect you "
+                    "with someone else who may be able to help?"
                 )
 
             # For ALL transferable agents, ask what the call is about
@@ -764,7 +701,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             logger.info(
                 f"Agent {agent['name']} requested - asking for reason: {context.userdata.to_safe_log()}"
             )
-            return f"Sure, I can connect you with {agent['name']}. May I ask what this is in reference to?"
+            return f"Sure, I can connect you with {agent.get('pronunciation', agent['name'])}. May I ask what this is in reference to?"
         else:
             logger.info(
                 f"Agent not found in directory: {mask_name(agent_name) if agent_name else 'empty'}"
@@ -853,8 +790,12 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
                     f"{ae_agent['name']} for service request: {reason}"
                 )
 
+                ae_name = ae_agent.get(
+                    "pronunciation", ae_agent.get("name", "your account executive")
+                )
                 await context.session.say(
-                    "Let me see if your account executive is available.",
+                    f"It looks like your account manager is actually {ae_name}, "
+                    "let me see if they are available.",
                     allow_interruptions=False,
                 )
                 return await self._initiate_transfer(
@@ -1055,6 +996,14 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             Error message if validation fails, None if all requirements met.
         """
         userdata = context.userdata
+
+        if not (userdata.name and userdata.name.strip()) or not (
+            userdata.phone_number and userdata.phone_number.strip()
+        ):
+            return (
+                "Please collect the caller's name and phone number before transferring. "
+                "Ask: 'Before I connect you, can I get your name and a good callback number?'"
+            )
 
         if not userdata.insurance_type:
             return (

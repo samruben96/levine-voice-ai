@@ -66,7 +66,7 @@ class MortgageeCertificateAgent(Agent):
 1. First ask: "Is this for a new certificate request, or do you have a question about an existing certificate?"
 2. NEW CERTIFICATE: Use check_certificate_type tool with is_new_certificate=True to provide the email (Certificate@hlinsure.com)
 3. EXISTING CERTIFICATE: Say "No problem, let me get you over to an agent that can help you with that."
-   Then collect insurance type and identifier using record_caller_info, and transfer using transfer_existing_certificate.""",
+   Then ask "What is the name of the business on the certificate?" and use record_caller_info with insurance_type='business', then transfer using transfer_existing_certificate.""",
                 """MORTGAGEE/LIENHOLDER REQUEST FLOW:
 1. INFORM about email requirement:
    "Got it. HLI requires all mortgagee requests to be sent in writing to info@hlinsure.com."
@@ -147,9 +147,10 @@ class MortgageeCertificateAgent(Agent):
             cert_email = format_email_for_speech("Certificate@hlinsure.com")
             return (
                 f"You can email your certificate request to {cert_email} "
-                "You can also issue your own certificates through the portal on our website at "
-                "harry levine insurance dot com. "
-                "Is there anything else I can help you with today?"
+                "Did you know you can also issue your own certificates using the "
+                "Harry Levine Insurance app or through the portal on our website "
+                "at harry levine insurance dot com? "
+                "Do you know what your login information is, or would you need us to resend it?"
             )
         else:
             logger.info(
@@ -244,18 +245,18 @@ class MortgageeCertificateAgent(Agent):
                 "Can you please hold while I find someone to help?"
             )
 
-        agent_name = agent.get("pronunciation", agent.get("name", "an agent"))
+        agent_display = agent.get("pronunciation", agent.get("name", "an agent"))
         agent_ext = agent.get("ext", "unknown")
 
         logger.info(
-            f"[MOCK TRANSFER] Certificate transfer to {agent_name} (ext {agent_ext}) "
+            f"[MOCK TRANSFER] Certificate transfer to {agent['name']} (ext {agent_ext}) "
             f"for {department} client: {mask_name(identifier) if identifier else 'unknown'}"
         )
 
-        userdata.assigned_agent = agent_name
+        userdata.assigned_agent = agent["name"]
         userdata.additional_notes = "Existing certificate issue"
 
-        return f"I'm connecting you with {agent_name} now. {HOLD_MESSAGE}"
+        return f"I'm connecting you with {agent_display} now. {HOLD_MESSAGE}"
 
     @function_tool
     async def provide_mortgagee_email_info(

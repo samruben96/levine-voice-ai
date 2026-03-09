@@ -85,7 +85,7 @@ class ClaimsAgent(Agent):
 
 NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump straight to helping them.""",
                 """CARRIER INFO:
-- We have numbers for: Progressive, Travelers, Hartford, Liberty Mutual
+- We have claims numbers on file for most major carriers — always try the lookup tool first
 - Unknown carrier: Direct them to check their insurance card""",
                 """AVOID:
 - Saying "I'm sorry to hear that" - already said by receptionist
@@ -207,8 +207,7 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
             )
             return (
                 f"I found it. The claims number for {carrier_name} is {claims_number}. "
-                f"They have a 24/7 claims line, so you can call them right now to file your claim. "
-                f"Is there anything else I can help you with?"
+                f"They have a 24/7 claims line, so you can call them right now to file your claim."
             )
         else:
             safe_name = carrier_name[:50] if carrier_name else "empty"
@@ -216,7 +215,7 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
             return (
                 f"I'm sorry, I don't have the claims number for {carrier_name} in my system. "
                 f"You should be able to find their 24/7 claims number on your insurance card "
-                f"or policy documents. Is there anything else I can help you with?"
+                f"or policy documents."
             )
 
     @function_tool
@@ -296,6 +295,5 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
         return (
             f"I've noted your information. "
             f"Our team will call you back at the number ending in {last4} during business hours, "
-            f"Monday through Friday, 9 AM to 5 PM. "
-            f"Is there anything else I can help you with in the meantime?"
+            f"Monday through Friday, 9 AM to 5 PM."
         )

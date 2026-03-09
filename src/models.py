@@ -42,8 +42,8 @@ class CallIntent(str, Enum):
 
     See Also
     --------
-    Assistant.route_call_new_quote : Handler for NEW_QUOTE intent
-    Assistant.route_call_payment_or_documents : Handler for MAKE_PAYMENT intent
+    Assistant.transfer_new_quote : Handler for NEW_QUOTE intent
+    Assistant.transfer_payment : Handler for MAKE_PAYMENT intent
     docs/ARCHITECTURE.md : Full routing documentation
     """
 

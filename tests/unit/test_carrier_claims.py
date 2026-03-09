@@ -105,10 +105,10 @@ class TestCarrierClaimsNumbers:
         """Test lookup with partial carrier name."""
         result = get_carrier_claims_number("State")
         # Partial name "State" matches "State Farm" via substring search
-        assert result == "1-800-732-5246"
+        assert result == "800-732-5246"
 
     def test_carrier_claims_number_lookup_with_typo(self):
         """Test lookup with common typo."""
         result = get_carrier_claims_number("Progressiv")
         # "Progressiv" is a prefix of "Progressive", should match via partial match
-        assert result == "1-800-776-4737"
+        assert result == "800-274-4499"

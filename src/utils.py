@@ -121,7 +121,7 @@ def format_email_for_speech(email: str) -> str:
     local_spelled = "-".join(local.upper())
     domain_spelled = "-".join(domain_name.upper())
     spelled = f"{local_spelled} at {domain_spelled} dot {tld}"
-    return f"{readable}. Let me spell that out for you: {spelled}."
+    return f"{readable}. ... Let me spell that out for you: {spelled}."
 
 
 def validate_phone(phone: str) -> tuple[bool, str]:

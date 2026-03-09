@@ -109,6 +109,7 @@ STAFF_DIRECTORY: StaffDirectoryConfig = {
             "assigned": "Agency Support",
             "ext": "7013",
             "timeBlock": "12:00-1:00 L",
+            "pronunciation": "Ah-nah-mer",
         },
         {
             "department": "CL-Account Executive",
@@ -116,6 +117,7 @@ STAFF_DIRECTORY: StaffDirectoryConfig = {
             "assigned": "A-L",
             "ext": "7002",
             "timeBlock": "1:00-2:00",
+            "pronunciation": "Ah-dree-ah-nah",
         },
         {
             "department": "CL-Account Executive",
@@ -123,6 +125,7 @@ STAFF_DIRECTORY: StaffDirectoryConfig = {
             "assigned": "M-Z",
             "ext": "7018",
             "timeBlock": "9:00-10:00",
+            "pronunciation": "Ray-von",
         },
         {
             "department": "CL-Department Manager",
@@ -176,6 +179,7 @@ STAFF_DIRECTORY: StaffDirectoryConfig = {
             "ext": "7011",
             "timeBlock": "11:00-12:00",
             "languages": ["en", "es"],
+            "pronunciation": "Yah-ris-lin",
         },
         {
             "department": "PL-Account Executive",
@@ -221,6 +225,7 @@ STAFF_DIRECTORY: StaffDirectoryConfig = {
             "assigned": "CSR",
             "ext": "7008",
             "timeBlock": "2:00-3:00 L",
+            "pronunciation": "Shuh-ree",
         },
         {
             "department": "PL-Special Projects",
@@ -780,5 +785,5 @@ def get_bilingual_agents(language: str = "es") -> list[StaffMember]:
     return [
         staff
         for staff in STAFF_DIRECTORY["staff"]
-        if language in staff.get("languages", ["en"])
+        if language in staff.get("languages", [])
     ]
