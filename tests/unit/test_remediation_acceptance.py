@@ -411,3 +411,40 @@ def test_bilingual_agents_default_empty():
     assert len(english_agents) < all_staff_count, (
         "get_bilingual_agents('en') should not return all staff"
     )
+
+
+# =============================================================================
+# EndCallTool / Wrap-Up Tests
+# =============================================================================
+
+
+def test_assistant_has_end_call_tool():
+    """Assistant should have EndCallTool to gracefully end calls."""
+    from agents.assistant import Assistant
+
+    source = inspect.getsource(Assistant.__init__)
+    assert "EndCallTool" in source, (
+        "Assistant should include EndCallTool for graceful call termination"
+    )
+
+
+def test_wrap_up_instruction_exists():
+    """Output rules should instruct agent to wrap up calls when caller is done."""
+    from instruction_templates import ASSISTANT_OUTPUT_RULES
+
+    rules_lower = ASSISTANT_OUTPUT_RULES.lower()
+    assert (
+        "end_call" in rules_lower
+        or "wrap up" in rules_lower
+        or "end call" in rules_lower
+    ), "Output rules should contain call wrap-up instructions"
+
+
+def test_assistant_imports_end_call_tool():
+    """Assistant module should import EndCallTool."""
+    import agents.assistant as assistant_module
+
+    source = inspect.getsource(assistant_module)
+    assert "EndCallTool" in source, (
+        "assistant.py should import EndCallTool from livekit.agents.beta.tools"
+    )

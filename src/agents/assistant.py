@@ -8,6 +8,7 @@ sub-agents based on caller intent.
 import logging
 
 from livekit.agents import Agent, RunContext, ToolError, function_tool
+from livekit.agents.beta.tools import EndCallTool
 
 from agents.after_hours import AfterHoursAgent
 from agents.claims import ClaimsAgent
@@ -138,6 +139,12 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
                 ASSISTANT_OFFICE_INFO,
                 ASSISTANT_PERSONALITY,
             ),
+            tools=[
+                EndCallTool(
+                    end_instructions="Thank the caller for calling Harry Leveen Insurance and wish them a good day.",
+                    delete_room=True,
+                ),
+            ],
         )
 
     async def on_enter(self) -> None:
