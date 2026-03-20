@@ -15,7 +15,7 @@ from instruction_templates import (
     compose_instructions,
 )
 from models import CallerInfo, CallIntent
-from utils import mask_name, mask_phone
+from utils import mask_name, mask_phone, safe_mask_name, safe_mask_phone
 
 logger = logging.getLogger("agent")
 
@@ -106,7 +106,7 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
                 # SILENT - Assistant already spoke the empathy + transfer message
                 # Just reset the flag and execute transfer without speaking
                 userdata._handoff_speech_delivered = False
-                await self._execute_claims_transfer_silent()
+                await self._execute_claims_transfer(silent=True)
             else:
                 # Fallback for direct entry (not via handoff)
                 # Check if contact info is collected before transferring
@@ -123,12 +123,16 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
                 instructions="Say ONLY: 'Our office is closed, but I can help you reach your carrier's 24/7 claims line. Do you know which insurance carrier you're with?' Do NOT say empathy or ask if they're okay - that was already handled by the receptionist."
             )
 
-    async def _execute_claims_transfer(self) -> None:
+    async def _execute_claims_transfer(self, *, silent: bool = False) -> None:
         """Execute the claims transfer directly without LLM generation.
 
-        This method speaks the COMPLETE transfer message (empathy + hold) and
-        performs the transfer. Using direct execution avoids unreliable LLM
-        instruction following and prevents duplicate messages.
+        This method performs the transfer and optionally speaks the hold message.
+        Using direct execution avoids unreliable LLM instruction following and
+        prevents duplicate messages.
+
+        Args:
+            silent: If True, skip speaking (speech already delivered by Assistant).
+                   If False, speak the hold message before transferring.
         """
         # Access the session's userdata via the session context
         session: AgentSession = self.session
@@ -140,18 +144,20 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
         # Log the transfer attempt
         caller_name = userdata.name
         caller_phone = userdata.phone_number
+        mode = "silently (speech already delivered)" if silent else "directly"
         logger.info(
-            f"[MOCK TRANSFER] Executing claims transfer directly: "
-            f"name={mask_name(caller_name) if caller_name else 'unknown'}, "
-            f"phone={mask_phone(caller_phone) if caller_phone else 'unknown'}"
+            f"[MOCK TRANSFER] Executing claims transfer {mode}: "
+            f"name={safe_mask_name(caller_name)}, "
+            f"phone={safe_mask_phone(caller_phone)}"
         )
 
-        # Speak the hold message only - Assistant already expressed empathy and
-        # mentioned connecting to handle the claim
-        await session.say(
-            f"Please stay on the line. {HOLD_MESSAGE}",
-            allow_interruptions=False,
-        )
+        if not silent:
+            # Speak the hold message only - Assistant already expressed empathy and
+            # mentioned connecting to handle the claim
+            await session.say(
+                f"Please stay on the line. {HOLD_MESSAGE}",
+                allow_interruptions=False,
+            )
 
         # TODO (Needs Client Input): What extension(s) handle claims during business hours?
         # For now, this is a placeholder that logs the transfer attempt.
@@ -161,26 +167,6 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
         #   job_ctx = get_job_context()
         #   await job_ctx.transfer_sip_participant(participant, f"tel:{claims_ext}")
         # The session will end automatically after a cold transfer.
-
-    async def _execute_claims_transfer_silent(self) -> None:
-        """Execute transfer WITHOUT speaking - speech already delivered by Assistant."""
-        session: AgentSession = self.session
-        userdata: CallerInfo = session.userdata
-
-        # Set the call intent
-        userdata.call_intent = CallIntent.CLAIMS
-
-        # Log the transfer attempt
-        caller_name = userdata.name
-        caller_phone = userdata.phone_number
-        logger.info(
-            f"[MOCK TRANSFER] Executing claims transfer silently (speech already delivered): "
-            f"name={mask_name(caller_name) if caller_name else 'unknown'}, "
-            f"phone={mask_phone(caller_phone) if caller_phone else 'unknown'}"
-        )
-
-        # NO speech here - Assistant already spoke the empathy + transfer message
-        # TODO: Actual SIP transfer when implemented
 
     @function_tool
     async def record_carrier_name(
@@ -239,8 +225,8 @@ NOTE: Do NOT ask "Are you okay?" - the receptionist already asked this. Jump str
         caller_phone = context.userdata.phone_number
         logger.info(
             f"[MOCK TRANSFER] Transferring claims call (via tool): "
-            f"name={mask_name(caller_name) if caller_name else 'unknown'}, "
-            f"phone={mask_phone(caller_phone) if caller_phone else 'unknown'}"
+            f"name={safe_mask_name(caller_name)}, "
+            f"phone={safe_mask_phone(caller_phone)}"
         )
 
         # Speak the transfer message

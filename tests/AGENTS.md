@@ -10,11 +10,7 @@ Test suite for the Harry Levine Insurance Voice Agent. Organized into fast unit 
 
 | File | Description |
 |------|-------------|
-| `conftest.py` | **Root conftest** — Shared fixtures: agent session factories, CallerInfo presets, mock contexts, event-skipping helpers (`skip_function_events`), conversation helpers (`run_conversation`), intent templates, test markers |
-| `test_agent.py` | Original monolithic test file (kept for CI compatibility). Tests error handling, caller info validation, phone validation |
-| `test_staff_directory.py` | Staff directory routing tests: alpha-split logic, department lookups, restricted transfers, ring groups, prefix exceptions ("The", "Law office of"), name disambiguation (`TestGetAgentsByNamePrefix`) |
-| `test_business_hours.py` | Business hours tests: open/closed checks, lunch hour, next-open-time calculations, timezone handling, prompt formatting |
-| `test_utils.py` | Utility function tests: PII masking, phone validation, environment validation, email formatting, route logging |
+| `conftest.py` | **Root conftest** — Shared fixtures: event-skipping helpers (`skip_function_events`), LLM factory, environment fixtures, test markers |
 
 ## Subdirectories
 
@@ -52,10 +48,8 @@ Test suite for the Harry Levine Insurance Voice Agent. Organized into fast unit 
 ```
 
 ### Common Patterns
-- Session fixtures: `assistant_session`, `claims_session`, `mortgagee_session`, `after_hours_session`
-- Factory: `create_agent_session(AgentClass, userdata=CallerInfo(...))` for parametrized tests
-- Assertion intents: Use `INTENTS` dict for consistent assertion strings
 - Business hours context: Use `CONTEXT_OPEN`, `CONTEXT_CLOSED_EVENING` etc. from integration conftest
+- Event skipping: Use `skip_function_events(result)` from conftest
 
 ## Dependencies
 

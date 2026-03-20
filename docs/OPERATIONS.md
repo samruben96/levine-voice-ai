@@ -554,13 +554,10 @@ Run specific test categories:
 
 ```bash
 # Staff directory tests only
-uv run pytest tests/test_staff_directory.py -v
-
-# Agent behavior tests only
-uv run pytest tests/test_agent.py -v
+uv run pytest tests/unit/test_staff_directory.py -v
 
 # Specific test
-uv run pytest tests/test_staff_directory.py::TestFindAgentByAlpha -v
+uv run pytest tests/unit/test_staff_directory.py::TestFindAgentByAlpha -v
 
 # Tests matching a pattern
 uv run pytest tests/ -k "restricted" -v

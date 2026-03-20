@@ -50,7 +50,14 @@ from staff_directory import (
     is_agent_available,
     is_transferable,
 )
-from utils import format_email_for_speech, log_route_decision, mask_name, mask_phone
+from utils import (
+    format_email_for_speech,
+    log_route_decision,
+    mask_name,
+    mask_phone,
+    safe_mask_name,
+    safe_mask_phone,
+)
 
 logger = logging.getLogger("agent")
 
@@ -296,8 +303,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             intent=CallIntent.CLAIMS,
             agent=None,
             insurance_type=context.userdata.insurance_type,
-            identifier=context.userdata.business_name
-            or context.userdata.last_name_spelled,
+            identifier=context.userdata.identifier,
             destination="handoff:ClaimsAgent",
             is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
         )
@@ -349,8 +355,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             intent=CallIntent.CERTIFICATES,
             agent=None,
             insurance_type=context.userdata.insurance_type,
-            identifier=context.userdata.business_name
-            or context.userdata.last_name_spelled,
+            identifier=context.userdata.identifier,
             destination="handoff:MortgageeCertificateAgent",
             is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
         )
@@ -397,8 +402,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             intent=CallIntent.MORTGAGEE_LIENHOLDERS,
             agent=None,
             insurance_type=context.userdata.insurance_type,
-            identifier=context.userdata.business_name
-            or context.userdata.last_name_spelled,
+            identifier=context.userdata.identifier,
             destination="handoff:MortgageeCertificateAgent",
             is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
         )
@@ -581,8 +585,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             intent=context.userdata.call_intent or "after_hours",
             agent=None,
             insurance_type=context.userdata.insurance_type,
-            identifier=context.userdata.business_name
-            or context.userdata.last_name_spelled,
+            identifier=context.userdata.identifier,
             destination="handoff:AfterHoursAgent",
             is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
         )
@@ -636,8 +639,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             intent=CallIntent.SOMETHING_ELSE,
             agent=None,
             insurance_type=context.userdata.insurance_type,
-            identifier=context.userdata.business_name
-            or context.userdata.last_name_spelled,
+            identifier=context.userdata.identifier,
             destination="ring_group:VA (appointment)",
             is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
         )
@@ -854,11 +856,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
 
                 if not ae_agent:
                     logger.warning("No Account Executive found for redirect")
-                    raise ToolError(
-                        f"No Account Executive found for insurance_type={context.userdata.insurance_type}, "
-                        f"business_name={mask_name(context.userdata.business_name) if context.userdata.business_name else 'None'}, "
-                        f"last_name_spelled={mask_name(context.userdata.last_name_spelled) if context.userdata.last_name_spelled else 'None'}"
-                    )
+                    raise self._no_agent_error(context, "Account Executive redirect")
 
                 logger.info(
                     f"Redirecting from Sales Agent {requested_agent_name} to Account Executive "
@@ -886,9 +884,8 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
     # =========================================================================
     # TRANSFER UTILITY METHODS
     # =========================================================================
-    # These methods provide common transfer functionality used by the new
-    # unified transfer tools below. They mirror the BaseRoutingAgent pattern
-    # but are designed for direct transfer (no handoff to sub-agents).
+    # These methods provide common transfer functionality used by the
+    # unified transfer tools below, designed for direct transfer.
 
     async def _initiate_transfer(
         self, context: RunContext[CallerInfo], agent: dict, transfer_type: str
@@ -922,8 +919,8 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         logger.info(
             f"[MOCK TRANSFER] Initiating {transfer_type} transfer to {agent_name} "
             f"(ext {agent_ext}) for caller: "
-            f"name={mask_name(caller_name) if caller_name else 'unknown'}, "
-            f"phone={mask_phone(caller_phone) if caller_phone else 'unknown'}"
+            f"name={safe_mask_name(caller_name)}, "
+            f"phone={safe_mask_phone(caller_phone)}"
         )
 
         # Speak the transfer message and wait for it to finish
@@ -983,8 +980,8 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         logger.info(
             f"[MOCK TRANSFER] Initiating {transfer_type} transfer to ring group "
             f"{ring_group['name']} (extensions: {ring_group['extensions']}) for caller: "
-            f"name={mask_name(caller_name) if caller_name else 'unknown'}, "
-            f"phone={mask_phone(caller_phone) if caller_phone else 'unknown'}"
+            f"name={safe_mask_name(caller_name)}, "
+            f"phone={safe_mask_phone(caller_phone)}"
         )
 
         # Speak the transfer message and wait for it to finish
@@ -1100,6 +1097,74 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
 
         return None
 
+    def _no_agent_error(self, context: RunContext[CallerInfo], label: str) -> ToolError:
+        """Build a standardized ToolError for when alpha-split routing finds no agent.
+
+        Args:
+            context: The run context containing caller information.
+            label: Human-readable label for the transfer type (e.g., "policy change").
+
+        Returns:
+            A ToolError with masked PII details for debugging.
+        """
+        return ToolError(
+            f"No agent found for {label}: "
+            f"insurance_type={context.userdata.insurance_type}, "
+            f"business_name={safe_mask_name(context.userdata.business_name)}, "
+            f"last_name_spelled={safe_mask_name(context.userdata.last_name_spelled)}"
+        )
+
+    async def _execute_ae_transfer(
+        self,
+        context: RunContext[CallerInfo],
+        intent: CallIntent,
+        transfer_type: str,
+    ) -> str | None:
+        """Execute a standard Account Executive transfer via alpha-split.
+
+        Shared logic for transfer_cancellation, transfer_policy_change,
+        and transfer_coverage_question which all follow the same flow:
+        validate -> set intent -> find AE -> log -> transfer.
+
+        Args:
+            context: The run context containing caller information.
+            intent: The CallIntent to set on userdata.
+            transfer_type: Label for logging (e.g., "cancellation", "policy change").
+
+        Returns:
+            Validation error string if requirements not met, None on successful transfer.
+        """
+        # Validate requirements
+        validation_error = self._validate_transfer_requirements(context)
+        if validation_error:
+            return validation_error
+
+        # Set call intent
+        context.userdata.call_intent = intent
+
+        # Find appropriate agent via alpha-split (existing client)
+        agent = self._find_agent_for_transfer(context, is_new_business=False)
+
+        if not agent:
+            logger.warning(f"No agent found for {transfer_type} transfer")
+            raise self._no_agent_error(context, transfer_type)
+
+        # Log the routing decision
+        log_route_decision(
+            intent=intent,
+            agent=agent["name"],
+            insurance_type=context.userdata.insurance_type,
+            identifier=context.userdata.identifier,
+            destination="transfer",
+            is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
+        )
+
+        logger.info(
+            f"Transferring {transfer_type} call to {agent['name']}: {context.userdata.to_safe_log()}"
+        )
+
+        return await self._initiate_transfer(context, agent, transfer_type)
+
     # =========================================================================
     # UNIFIED TRANSFER TOOLS (Phase 1 - Architecture Simplification)
     # =========================================================================
@@ -1127,42 +1192,16 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         Returns:
             Validation error string if requirements not met, None on successful transfer.
         """
-        # Validate requirements
-        validation_error = self._validate_transfer_requirements(context)
-        if validation_error:
-            return validation_error
-
-        # Set call intent
-        context.userdata.call_intent = CallIntent.CANCELLATION
-
-        # Find appropriate agent via alpha-split
-        agent = self._find_agent_for_transfer(context, is_new_business=False)
-
-        if not agent:
-            logger.warning("No agent found for cancellation transfer")
+        try:
+            return await self._execute_ae_transfer(
+                context, CallIntent.CANCELLATION, "cancellation"
+            )
+        except ToolError:
+            # Cancellation uses a soft error (friendly message) instead of ToolError
             return (
                 "I apologize, but I'm having trouble connecting you right now. "
                 "Can you please hold while I find someone to help?"
             )
-
-        # Log the routing decision
-        identifier = (
-            context.userdata.business_name or context.userdata.last_name_spelled
-        )
-        log_route_decision(
-            intent=CallIntent.CANCELLATION,
-            agent=agent["name"],
-            insurance_type=context.userdata.insurance_type,
-            identifier=identifier,
-            destination="transfer",
-            is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
-        )
-
-        logger.info(
-            f"Transferring cancellation call to {agent['name']}: {context.userdata.to_safe_log()}"
-        )
-
-        return await self._initiate_transfer(context, agent, "cancellation")
 
     @function_tool
     async def transfer_new_quote(
@@ -1268,11 +1307,7 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
 
         if not agent:
             logger.warning("No agent found for new quote transfer")
-            raise ToolError(
-                f"No agent found for new quote: insurance_type={context.userdata.insurance_type}, "
-                f"business_name={mask_name(context.userdata.business_name) if context.userdata.business_name else 'None'}, "
-                f"last_name_spelled={mask_name(context.userdata.last_name_spelled) if context.userdata.last_name_spelled else 'None'}"
-            )
+            raise self._no_agent_error(context, "new quote")
 
         # Log the routing decision for Commercial Lines
         log_route_decision(
@@ -1309,43 +1344,9 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         Returns:
             Validation error string if requirements not met, None on successful transfer.
         """
-        # Validate requirements
-        validation_error = self._validate_transfer_requirements(context)
-        if validation_error:
-            return validation_error
-
-        # Set call intent
-        context.userdata.call_intent = CallIntent.MAKE_CHANGE
-
-        # Find appropriate agent via alpha-split (existing client)
-        agent = self._find_agent_for_transfer(context, is_new_business=False)
-
-        if not agent:
-            logger.warning("No agent found for policy change transfer")
-            raise ToolError(
-                f"No agent found for policy change: insurance_type={context.userdata.insurance_type}, "
-                f"business_name={mask_name(context.userdata.business_name) if context.userdata.business_name else 'None'}, "
-                f"last_name_spelled={mask_name(context.userdata.last_name_spelled) if context.userdata.last_name_spelled else 'None'}"
-            )
-
-        # Log the routing decision
-        identifier = (
-            context.userdata.business_name or context.userdata.last_name_spelled
+        return await self._execute_ae_transfer(
+            context, CallIntent.MAKE_CHANGE, "policy change"
         )
-        log_route_decision(
-            intent=CallIntent.MAKE_CHANGE,
-            agent=agent["name"],
-            insurance_type=context.userdata.insurance_type,
-            identifier=identifier,
-            destination="transfer",
-            is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
-        )
-
-        logger.info(
-            f"Transferring policy change call to {agent['name']}: {context.userdata.to_safe_log()}"
-        )
-
-        return await self._initiate_transfer(context, agent, "policy change")
 
     @function_tool
     async def transfer_coverage_question(
@@ -1366,43 +1367,9 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
         Returns:
             Validation error string if requirements not met, None on successful transfer.
         """
-        # Validate requirements
-        validation_error = self._validate_transfer_requirements(context)
-        if validation_error:
-            return validation_error
-
-        # Set call intent
-        context.userdata.call_intent = CallIntent.COVERAGE_RATE_QUESTIONS
-
-        # Find appropriate agent via alpha-split (existing client)
-        agent = self._find_agent_for_transfer(context, is_new_business=False)
-
-        if not agent:
-            logger.warning("No agent found for coverage question transfer")
-            raise ToolError(
-                f"No agent found for coverage question: insurance_type={context.userdata.insurance_type}, "
-                f"business_name={mask_name(context.userdata.business_name) if context.userdata.business_name else 'None'}, "
-                f"last_name_spelled={mask_name(context.userdata.last_name_spelled) if context.userdata.last_name_spelled else 'None'}"
-            )
-
-        # Log the routing decision
-        identifier = (
-            context.userdata.business_name or context.userdata.last_name_spelled
+        return await self._execute_ae_transfer(
+            context, CallIntent.COVERAGE_RATE_QUESTIONS, "coverage question"
         )
-        log_route_decision(
-            intent=CallIntent.COVERAGE_RATE_QUESTIONS,
-            agent=agent["name"],
-            insurance_type=context.userdata.insurance_type,
-            identifier=identifier,
-            destination="transfer",
-            is_personal=context.userdata.insurance_type == InsuranceType.PERSONAL,
-        )
-
-        logger.info(
-            f"Transferring coverage question call to {agent['name']}: {context.userdata.to_safe_log()}"
-        )
-
-        return await self._initiate_transfer(context, agent, "coverage question")
 
     @function_tool
     async def transfer_payment(
@@ -1458,17 +1425,12 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
 
         if not agent:
             logger.warning("No agent found for payment transfer fallback")
-            raise ToolError(
-                f"No agent found for payment (VA unavailable, AE fallback failed): "
-                f"insurance_type={context.userdata.insurance_type}, "
-                f"business_name={mask_name(context.userdata.business_name) if context.userdata.business_name else 'None'}, "
-                f"last_name_spelled={mask_name(context.userdata.last_name_spelled) if context.userdata.last_name_spelled else 'None'}"
+            raise self._no_agent_error(
+                context, "payment (VA unavailable, AE fallback failed)"
             )
 
         # Log the routing decision for AE fallback
-        identifier = (
-            context.userdata.business_name or context.userdata.last_name_spelled
-        )
+        identifier = context.userdata.identifier
         log_route_decision(
             intent=CallIntent.MAKE_PAYMENT,
             agent=agent["name"],
@@ -1525,16 +1487,10 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
 
         if not agent:
             logger.warning("No agent found for 'something else' transfer")
-            raise ToolError(
-                f"No agent found for 'something else': insurance_type={context.userdata.insurance_type}, "
-                f"business_name={mask_name(context.userdata.business_name) if context.userdata.business_name else 'None'}, "
-                f"last_name_spelled={mask_name(context.userdata.last_name_spelled) if context.userdata.last_name_spelled else 'None'}"
-            )
+            raise self._no_agent_error(context, "something else")
 
         # Log the routing decision
-        identifier = (
-            context.userdata.business_name or context.userdata.last_name_spelled
-        )
+        identifier = context.userdata.identifier
         log_route_decision(
             intent=CallIntent.SOMETHING_ELSE,
             agent=agent["name"],

@@ -83,6 +83,50 @@ def mask_name(name: str) -> str:
     return name[0] + "*" * (len(name) - 1) if name else "***"
 
 
+def safe_mask_name(name: str | None) -> str:
+    """Mask name for logging, returning 'unknown' for None/empty values.
+
+    Convenience wrapper around mask_name() that handles None safely.
+
+    Args:
+        name: The name to mask, or None.
+
+    Returns:
+        Masked name or 'unknown' if name is None/empty.
+
+    Examples:
+        >>> safe_mask_name("John Smith")
+        'J*********'
+        >>> safe_mask_name(None)
+        'unknown'
+        >>> safe_mask_name("")
+        'unknown'
+    """
+    return mask_name(name) if name else "unknown"
+
+
+def safe_mask_phone(phone: str | None) -> str:
+    """Mask phone for logging, returning 'unknown' for None/empty values.
+
+    Convenience wrapper around mask_phone() that handles None safely.
+
+    Args:
+        phone: The phone number to mask, or None.
+
+    Returns:
+        Masked phone or 'unknown' if phone is None/empty.
+
+    Examples:
+        >>> safe_mask_phone("555-123-4567")
+        '***-***-4567'
+        >>> safe_mask_phone(None)
+        'unknown'
+        >>> safe_mask_phone("")
+        'unknown'
+    """
+    return mask_phone(phone) if phone else "unknown"
+
+
 def mask_email(email: str | None) -> str:
     """Mask email for logging, showing only first character and domain.
 

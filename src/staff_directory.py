@@ -656,6 +656,9 @@ def get_agents_by_name_prefix(name: str) -> list[StaffMember]:
 def get_agent_by_name(name: str) -> StaffMember | None:
     """Look up an agent by name with prefix matching support.
 
+    Delegates to get_agents_by_name_prefix and returns the first match,
+    preserving the same 3-pass matching priority (exact, prefix, reverse prefix).
+
     Args:
         name: The name to search for (prefix match is OK).
 
@@ -674,29 +677,8 @@ def get_agent_by_name(name: str) -> StaffMember | None:
         >>> get_agent_by_name("Nonexistent")
         None
     """
-    if not name:
-        return None
-
-    name_lower = name.lower().strip()
-
-    # First pass: exact match
-    for staff in STAFF_DIRECTORY["staff"]:
-        if staff["name"].lower() == name_lower:
-            return staff
-
-    # Second pass: staff name starts with search term (prefix match)
-    for staff in STAFF_DIRECTORY["staff"]:
-        staff_name_lower = staff["name"].lower()
-        if staff_name_lower.startswith(name_lower):
-            return staff
-
-    # Third pass: search term starts with staff first name (e.g., "Adriana Smith" matches "Adriana")
-    for staff in STAFF_DIRECTORY["staff"]:
-        staff_first_name = staff["name"].split()[0].lower()
-        if name_lower.startswith(staff_first_name):
-            return staff
-
-    return None
+    matches = get_agents_by_name_prefix(name)
+    return matches[0] if matches else None
 
 
 def get_agent_by_extension(ext: str) -> StaffMember | None:

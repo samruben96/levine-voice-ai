@@ -7,13 +7,11 @@ real LLM inference. These tests are slower but verify actual agent behavior.
 import sys
 from typing import Any
 
-import pytest
-from livekit.agents import AgentSession, inference
+from livekit.agents import inference
 from livekit.agents import llm as llm_module
 
 # Import from the src directory
 sys.path.insert(0, "src")
-from agent import Assistant, CallerInfo
 
 # =============================================================================
 # EVENT SKIPPING HELPERS
@@ -45,7 +43,7 @@ def skip_function_events(
 
 
 # =============================================================================
-# LLM FIXTURES
+# LLM FACTORY
 # =============================================================================
 
 
@@ -66,7 +64,7 @@ def _llm(model: str = "openai/gpt-4.1-mini") -> llm_module.LLM:
     Returns:
         An LLM instance that can be used with `async with _llm() as llm`.
     """
-    return inference.LLM(model=model)
+    return create_integration_llm(model=model)
 
 
 # =============================================================================
@@ -90,74 +88,3 @@ CONTEXT_CLOSED_WEEKEND = (
 CONTEXT_CLOSED_EARLY_MORNING = (
     "CURRENT TIME: 7:00 AM ET, Thursday\nOFFICE STATUS: Closed (opens at 9 AM)"
 )
-
-
-# =============================================================================
-# SESSION FIXTURES WITH SPECIFIC CONTEXTS
-# =============================================================================
-
-
-@pytest.fixture
-async def session_during_business_hours():
-    """Session with Assistant configured for during business hours.
-
-    Yields:
-        Tuple of (session, llm) for testing business hours behavior.
-    """
-    llm = create_integration_llm()
-    async with (
-        llm as llm_ctx,
-        AgentSession[CallerInfo](llm=llm_ctx, userdata=CallerInfo()) as session,
-    ):
-        await session.start(Assistant(business_hours_context=CONTEXT_OPEN))
-        yield session, llm_ctx
-
-
-@pytest.fixture
-async def session_after_hours_evening():
-    """Session with Assistant configured for evening after hours.
-
-    Yields:
-        Tuple of (session, llm) for testing after-hours behavior.
-    """
-    llm = create_integration_llm()
-    async with (
-        llm as llm_ctx,
-        AgentSession[CallerInfo](llm=llm_ctx, userdata=CallerInfo()) as session,
-    ):
-        await session.start(Assistant(business_hours_context=CONTEXT_CLOSED_EVENING))
-        yield session, llm_ctx
-
-
-@pytest.fixture
-async def session_after_hours_weekend():
-    """Session with Assistant configured for weekend.
-
-    Yields:
-        Tuple of (session, llm) for testing weekend behavior.
-    """
-    llm = create_integration_llm()
-    async with (
-        llm as llm_ctx,
-        AgentSession[CallerInfo](llm=llm_ctx, userdata=CallerInfo()) as session,
-    ):
-        await session.start(Assistant(business_hours_context=CONTEXT_CLOSED_WEEKEND))
-        yield session, llm_ctx
-
-
-@pytest.fixture
-async def session_early_morning():
-    """Session with Assistant configured for early morning (before open).
-
-    Yields:
-        Tuple of (session, llm) for testing early morning behavior.
-    """
-    llm = create_integration_llm()
-    async with (
-        llm as llm_ctx,
-        AgentSession[CallerInfo](llm=llm_ctx, userdata=CallerInfo()) as session,
-    ):
-        await session.start(
-            Assistant(business_hours_context=CONTEXT_CLOSED_EARLY_MORNING)
-        )
-        yield session, llm_ctx

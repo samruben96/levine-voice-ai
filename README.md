@@ -66,13 +66,14 @@ src/
 
 tests/
   conftest.py              # Enhanced shared fixtures
-  test_utils.py            # Utility function tests
   unit/                    # Fast unit tests
     test_caller_info.py
     test_phone_validation.py
     test_environment.py
     test_carrier_claims.py
     test_agent_instructions.py
+    test_staff_directory.py  # Routing logic tests
+    test_business_hours.py   # Business hours tests
   integration/             # LLM integration tests
     test_greeting.py
     test_security.py
@@ -85,9 +86,6 @@ tests/
     test_something_else.py
     test_mortgagee_cert.py
     test_after_hours.py
-  test_agent.py            # Original (kept for compatibility)
-  test_staff_directory.py  # Routing logic tests
-  test_business_hours.py   # Business hours tests
 ```
 
 ### Agent Hierarchy
@@ -269,23 +267,18 @@ uv run pytest tests/ -v
 .venv/bin/python -m pytest -m smoke     # Smoke tests (CI)
 
 # Run specific test file
-uv run pytest tests/test_agent.py
+uv run pytest tests/unit/test_caller_info.py
 
 # Run specific test
-uv run pytest tests/test_agent.py::test_receptionist_greeting
+uv run pytest tests/unit/test_caller_info.py::test_caller_info_defaults
 ```
 
 ### Test Structure
 
 | Directory | Tests | Description |
 |-----------|-------|-------------|
-| `tests/unit/` | 76 | Fast unit tests, no external API calls |
+| `tests/unit/` | 490+ | Fast unit tests, no external API calls |
 | `tests/integration/` | 131 | LLM integration tests by feature |
-| `tests/test_utils.py` | 63 | Utility function tests |
-| `tests/test_staff_directory.py` | 62 | Routing logic tests |
-| `tests/test_business_hours.py` | 129 | Business hours tests |
-| `tests/test_base_routing.py` | 41 | BaseRoutingAgent tests |
-| `tests/test_agent.py` | - | Original file (compatibility) |
 
 ### Code Quality
 
@@ -374,9 +367,8 @@ The project includes [AGENTS.md](AGENTS.md) with LiveKit-specific conventions fo
 
 - [OPERATIONS.md](docs/OPERATIONS.md) - Staff directory management and routing configuration
 - [LATENCY_TUNING.md](docs/LATENCY_TUNING.md) - Voice latency optimization parameters and tuning guide
-- [BASE_ROUTING_AGENT_DESIGN.md](docs/BASE_ROUTING_AGENT_DESIGN.md) - Historical BaseRoutingAgent design (superseded by single-agent architecture)
-- [TEST_RESTRUCTURING_PLAN.md](docs/TEST_RESTRUCTURING_PLAN.md) - Test suite restructuring plan (COMPLETED)
-- [PROJECT_STATUS.md](PROJECT_STATUS.md) - Current project status and Phase 1/2 completion report
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - System architecture and agent design
+- [PROJECT_STATUS.md](PROJECT_STATUS.md) - Current project status
 - [AGENTS.md](AGENTS.md) - LiveKit Agents project conventions
 - [LiveKit Agents Documentation](https://docs.livekit.io/agents/)
 

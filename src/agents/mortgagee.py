@@ -18,7 +18,7 @@ from staff_directory import (
     find_agent_by_alpha,
     get_alpha_route_key,
 )
-from utils import format_email_for_speech, mask_name
+from utils import format_email_for_speech, mask_name, safe_mask_name
 
 logger = logging.getLogger("agent")
 
@@ -250,7 +250,7 @@ class MortgageeCertificateAgent(Agent):
 
         logger.info(
             f"[MOCK TRANSFER] Certificate transfer to {agent['name']} (ext {agent_ext}) "
-            f"for {department} client: {mask_name(identifier) if identifier else 'unknown'}"
+            f"for {department} client: {safe_mask_name(identifier)}"
         )
 
         userdata.assigned_agent = agent["name"]

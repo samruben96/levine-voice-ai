@@ -78,6 +78,36 @@ class TestPhoneValidation:
         assert is_valid is True
         assert normalized == "15551234567"
 
+    def test_valid_exactly_10_digits(self):
+        """Test boundary: exactly 10 digits is valid."""
+        is_valid, digits = validate_phone("1234567890")
+        assert is_valid is True
+        assert digits == "1234567890"
+
+    def test_valid_exactly_15_digits(self):
+        """Test boundary: exactly 15 digits is valid."""
+        is_valid, digits = validate_phone("123456789012345")
+        assert is_valid is True
+        assert digits == "123456789012345"
+
+    def test_strips_all_non_digits(self):
+        """Test that all non-digit characters are stripped."""
+        is_valid, digits = validate_phone("1.2.3.4.5.6.7.8.9.0")
+        assert is_valid is True
+        assert digits == "1234567890"
+
+    def test_phone_with_extension_marker(self):
+        """Test phone with 'x' extension marker."""
+        is_valid, digits = validate_phone("555-123-4567 x123")
+        assert is_valid is True
+        assert digits == "5551234567123"
+
+    def test_validate_phone_with_only_special_chars(self):
+        """Test validate_phone with string of only special chars."""
+        is_valid, result = validate_phone("---().")
+        assert is_valid is False
+        assert result == "---()."
+
 
 @pytest.mark.unit
 class TestMaskPhone:
@@ -117,6 +147,35 @@ class TestMaskPhone:
         result = mask_phone("+1-555-123-4567")
         # Should mask most of it but show last few
         assert "***" in result
+
+    def test_masks_phone_with_parentheses(self):
+        """Test masking a phone number formatted with parentheses."""
+        result = mask_phone("(555) 123-4567")
+        assert result.endswith("4567")
+        assert "***" in result
+
+    def test_masks_phone_with_country_code(self):
+        """Test masking an international phone number."""
+        result = mask_phone("+1-555-123-4567")
+        assert result.endswith("4567")
+        assert "***" in result
+
+    def test_preserves_last_four_special_chars(self):
+        """Test that last 4 chars are preserved even with special chars."""
+        result = mask_phone("555-123-456!")
+        assert result.endswith("456!")
+
+    def test_mask_phone_with_none_like_string(self):
+        """Test mask_phone doesn't crash on unusual input."""
+        result = mask_phone("None")
+        assert isinstance(result, str)
+
+    def test_mask_phone_very_long_number(self):
+        """Test mask_phone with unusually long input."""
+        long_phone = "1" * 100
+        result = mask_phone(long_phone)
+        assert result == "***-***-1111"
+        assert len(result) == 12
 
 
 @pytest.mark.unit
@@ -158,3 +217,29 @@ class TestMaskName:
         result = mask_name("O'Brien-Smith")
         assert result.startswith("O")
         assert "*" in result
+
+    def test_mask_name_with_unicode(self):
+        """Test masking name with unicode characters."""
+        result = mask_name("Jose")
+        assert result[0] == "J"
+        assert "*" in result
+
+    def test_mask_name_with_hyphen(self):
+        """Test masking hyphenated name."""
+        result = mask_name("Smith-Jones")
+        assert result == "S**********"
+        assert len(result) == 11
+
+    def test_mask_name_with_whitespace_only(self):
+        """Test mask_name with whitespace-only string."""
+        result = mask_name("   ")
+        assert result[0] == " "
+        assert len(result) == 3
+
+    def test_mask_name_very_long_name(self):
+        """Test mask_name with unusually long input."""
+        long_name = "A" + "x" * 99
+        result = mask_name(long_name)
+        assert result[0] == "A"
+        assert len(result) == 100
+        assert result.count("*") == 99

@@ -259,6 +259,18 @@ class CallerInfo:
     # Track if transfer speech was already spoken during handoff to prevent duplicate messages
     _handoff_speech_delivered: bool = False
 
+    @property
+    def identifier(self) -> str | None:
+        """Return the routing identifier (business name or spelled last name).
+
+        This is the key field used for alpha-split routing decisions.
+        Business insurance uses business_name, personal uses last_name_spelled.
+
+        Returns:
+            The business_name if set, otherwise last_name_spelled, or None.
+        """
+        return self.business_name or self.last_name_spelled
+
     def is_ready_for_routing(self) -> bool:
         """Check if caller info has minimum required data for routing.
 

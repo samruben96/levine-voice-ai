@@ -18,7 +18,6 @@ Application source code for the Harry Levine Insurance Voice Agent. Contains the
 | `instruction_templates.py` | Reusable LLM instruction fragments and composition helpers. Reduces token duplication ~8-14% across agent prompts |
 | `constants.py` | Hold messages, carrier claims phone numbers dict, `get_carrier_claims_number()` lookup |
 | `utils.py` | PII masking (`mask_phone`, `mask_name`), phone validation, email formatting for TTS (`format_email_for_speech` — reads normally then spells), structured route logging |
-| `base_agent.py` | `BaseRoutingAgent` - base class with `_initiate_transfer`, `_handle_fallback`, `_take_data_sheet` |
 | `__init__.py` | Package init, exports `__version__ = "1.0.0"` |
 
 ## Subdirectories
@@ -40,12 +39,12 @@ Application source code for the Harry Levine Insurance Voice Agent. Contains the
 
 ### Testing Requirements
 - Unit tests: `.venv/bin/python -m pytest tests/unit/ -v` (~0.03s)
-- After changing routing logic: `.venv/bin/python -m pytest tests/test_staff_directory.py -v`
-- After changing business hours: `.venv/bin/python -m pytest tests/test_business_hours.py -v`
+- After changing routing logic: `.venv/bin/python -m pytest tests/unit/test_staff_directory.py -v`
+- After changing business hours: `.venv/bin/python -m pytest tests/unit/test_business_hours.py -v`
 - After changing agent behavior: Run the relevant integration test file
 
 ### Common Patterns
-- Agents inherit from `Agent` (LiveKit) or `BaseRoutingAgent` (custom base)
+- Agents inherit from `Agent` (LiveKit)
 - `CallerInfo` is passed as `userdata` on `AgentSession` and accessed via `context.userdata`
 - PII is always masked before logging using `mask_name()` / `mask_phone()`
 - Transfer tools use `@function_tool` decorator from LiveKit Agents

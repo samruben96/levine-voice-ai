@@ -6,7 +6,6 @@ The actual implementation has been refactored into separate modules:
 - models.py: CallerInfo, CallIntent, InsuranceType
 - utils.py: mask_phone, mask_name, validate_phone, validate_environment
 - constants.py: HOLD_MESSAGE, CARRIER_CLAIMS_NUMBERS, get_carrier_claims_number
-- base_agent.py: BaseRoutingAgent
 - agents/: All specialized agent classes
 - main.py: Server setup and entry point
 
@@ -43,9 +42,6 @@ from agents import (
     MortgageeCertificateAgent,
 )
 
-# Re-export base agent
-from base_agent import BaseRoutingAgent
-
 # Re-export constants
 from constants import (
     CARRIER_CLAIMS_NUMBERS,
@@ -72,7 +68,6 @@ __all__ = [
     "HOLD_MESSAGE",
     "AfterHoursAgent",
     "Assistant",
-    "BaseRoutingAgent",
     "CallIntent",
     "CallerInfo",
     "ClaimsAgent",

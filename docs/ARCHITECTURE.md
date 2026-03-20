@@ -652,18 +652,13 @@ src/
 
 tests/
   conftest.py              # Shared fixtures
-  test_utils.py            # Utility function tests
-  unit/                    # Fast unit tests
+  unit/                    # Fast unit tests (includes staff_directory, business_hours)
   integration/             # LLM integration tests
-  test_agent.py            # Original (compatibility)
-  test_staff_directory.py  # Routing logic tests
-  test_business_hours.py   # Business hours tests
 
 docs/
   ARCHITECTURE.md          # This document
   OPERATIONS.md            # Operational guide
   LATENCY_TUNING.md        # Voice latency optimization
-  BASE_ROUTING_AGENT_DESIGN.md # Historical (superseded by Phase 5)
 ```
 
 ---
