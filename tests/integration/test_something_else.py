@@ -28,7 +28,7 @@ def _llm():
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_something_else_intent_detection_vague_request() -> None:
-    """Evaluation: Aizellee should handle vague requests appropriately."""
+    """Evaluation: Willow should handle vague requests appropriately."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -63,7 +63,7 @@ async def test_something_else_intent_detection_vague_request() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_something_else_intent_detection_general_inquiry() -> None:
-    """Evaluation: Aizellee should handle general inquiries."""
+    """Evaluation: Willow should handle general inquiries."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,

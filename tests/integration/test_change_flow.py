@@ -29,7 +29,7 @@ def _llm():
 @pytest.mark.slow
 @pytest.mark.smoke
 async def test_policy_change_intent_detection_make_change() -> None:
-    """Evaluation: Aizellee should detect 'make a change' as policy change intent."""
+    """Evaluation: Willow should detect 'make a change' as policy change intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -62,7 +62,7 @@ async def test_policy_change_intent_detection_make_change() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_policy_change_intent_detection_add_vehicle() -> None:
-    """Evaluation: Aizellee should detect 'add a vehicle' as policy change intent."""
+    """Evaluation: Willow should detect 'add a vehicle' as policy change intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -95,7 +95,7 @@ async def test_policy_change_intent_detection_add_vehicle() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_policy_change_intent_detection_remove_driver() -> None:
-    """Evaluation: Aizellee should detect 'remove a driver' as policy change intent."""
+    """Evaluation: Willow should detect 'remove a driver' as policy change intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -130,7 +130,7 @@ async def test_policy_change_intent_detection_remove_driver() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_policy_change_intent_detection_change_address() -> None:
-    """Evaluation: Aizellee should detect 'change address' as policy change intent."""
+    """Evaluation: Willow should detect 'change address' as policy change intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -165,7 +165,7 @@ async def test_policy_change_intent_detection_change_address() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_policy_change_intent_detection_add_coverage() -> None:
-    """Evaluation: Aizellee should detect 'add coverage' as policy change intent."""
+    """Evaluation: Willow should detect 'add coverage' as policy change intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -201,7 +201,7 @@ async def test_policy_change_intent_detection_add_coverage() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_policy_change_intent_detection_endorsement() -> None:
-    """Evaluation: Aizellee should detect 'endorsement' as policy change intent."""
+    """Evaluation: Willow should detect 'endorsement' as policy change intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -239,7 +239,7 @@ async def test_policy_change_intent_detection_endorsement() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_policy_change_intent_detection_swap_truck() -> None:
-    """Evaluation: Aizellee should detect 'swap a work truck' as policy change AND infer business."""
+    """Evaluation: Willow should detect 'swap a work truck' as policy change AND infer business."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,

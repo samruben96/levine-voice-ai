@@ -29,7 +29,7 @@ def _llm():
 @pytest.mark.slow
 @pytest.mark.smoke
 async def test_new_quote_intent_detection_get_quote() -> None:
-    """Evaluation: Aizellee should detect 'get a quote' as new quote intent."""
+    """Evaluation: Willow should detect 'get a quote' as new quote intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -63,7 +63,7 @@ async def test_new_quote_intent_detection_get_quote() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_new_quote_intent_detection_new_policy() -> None:
-    """Evaluation: Aizellee should detect 'new policy' as new quote intent."""
+    """Evaluation: Willow should detect 'new policy' as new quote intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -97,7 +97,7 @@ async def test_new_quote_intent_detection_new_policy() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_new_quote_intent_detection_pricing() -> None:
-    """Evaluation: Aizellee should detect 'pricing on insurance' as new quote intent."""
+    """Evaluation: Willow should detect 'pricing on insurance' as new quote intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -136,7 +136,7 @@ async def test_new_quote_intent_detection_pricing() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_collects_contact_info_for_quote() -> None:
-    """Evaluation: Aizellee should collect name and phone for a quote request."""
+    """Evaluation: Willow should collect name and phone for a quote request."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -211,7 +211,7 @@ async def test_new_quote_asks_business_or_personal() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_asks_business_or_personal() -> None:
-    """Evaluation: Aizellee should determine insurance type for routing."""
+    """Evaluation: Willow should determine insurance type for routing."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,

@@ -21,7 +21,7 @@ def _llm() -> llm.LLM:
 
 @pytest.mark.asyncio
 async def test_receptionist_greeting() -> None:
-    """Evaluation of Aizellee's greeting as Harry Levine Insurance receptionist."""
+    """Evaluation of Willow's greeting as Harry Levine Insurance receptionist."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -31,7 +31,7 @@ async def test_receptionist_greeting() -> None:
         # Run an agent turn following the user's greeting (simulating an incoming call)
         result = await session.run(user_input="Hello")
 
-        # Evaluate that Aizellee greets as an insurance agency receptionist
+        # Evaluate that Willow greets as an insurance agency receptionist
         await (
             result.expect.next_event()
             .is_message(role="assistant")
@@ -58,7 +58,7 @@ async def test_receptionist_greeting() -> None:
 
 @pytest.mark.asyncio
 async def test_handles_policy_questions_appropriately() -> None:
-    """Evaluation of Aizellee's ability to handle specific policy questions by directing to an agent."""
+    """Evaluation of Willow's ability to handle specific policy questions by directing to an agent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -70,7 +70,7 @@ async def test_handles_policy_questions_appropriately() -> None:
             user_input="What's the deductible on my auto insurance policy?"
         )
 
-        # Evaluate that Aizellee appropriately starts collecting contact info or defers to agent
+        # Evaluate that Willow appropriately starts collecting contact info or defers to agent
         await (
             result.expect.next_event()
             .is_message(role="assistant")
@@ -92,7 +92,7 @@ async def test_handles_policy_questions_appropriately() -> None:
 
 @pytest.mark.asyncio
 async def test_answers_general_insurance_questions() -> None:
-    """Evaluation of Aizellee's ability to answer general questions about insurance services."""
+    """Evaluation of Willow's ability to answer general questions about insurance services."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -102,7 +102,7 @@ async def test_answers_general_insurance_questions() -> None:
         # Run an agent turn following a general insurance question
         result = await session.run(user_input="What types of insurance do you offer?")
 
-        # Evaluate that Aizellee provides helpful information about available services
+        # Evaluate that Willow provides helpful information about available services
         await (
             result.expect.next_event()
             .is_message(role="assistant")
@@ -131,7 +131,7 @@ async def test_answers_general_insurance_questions() -> None:
 
 @pytest.mark.asyncio
 async def test_provides_office_hours() -> None:
-    """Evaluation of Aizellee's ability to provide office hours and location."""
+    """Evaluation of Willow's ability to provide office hours and location."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -141,7 +141,7 @@ async def test_provides_office_hours() -> None:
         # Run an agent turn following a question about office hours
         result = await session.run(user_input="What are your hours?")
 
-        # Evaluate that Aizellee provides accurate office hours (may use function tool)
+        # Evaluate that Willow provides accurate office hours (may use function tool)
         # Skip any function calls that may occur
         result.expect.skip_next_event_if(type="function_call")
         result.expect.skip_next_event_if(type="function_call_output")
@@ -166,7 +166,7 @@ async def test_provides_office_hours() -> None:
 
 @pytest.mark.asyncio
 async def test_stays_on_topic() -> None:
-    """Evaluation of Aizellee's ability to redirect off-topic requests back to insurance services."""
+    """Evaluation of Willow's ability to redirect off-topic requests back to insurance services."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -178,7 +178,7 @@ async def test_stays_on_topic() -> None:
             user_input="Can you help me book a flight to Hawaii?"
         )
 
-        # Evaluate that Aizellee politely redirects to insurance topics
+        # Evaluate that Willow politely redirects to insurance topics
         await (
             result.expect.next_event()
             .is_message(role="assistant")
@@ -207,7 +207,7 @@ async def test_stays_on_topic() -> None:
 
 @pytest.mark.asyncio
 async def test_no_hallucinated_prior_context() -> None:
-    """Evaluation: Aizellee should NEVER reference prior conversations that don't exist."""
+    """Evaluation: Willow should NEVER reference prior conversations that don't exist."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -266,7 +266,7 @@ async def test_no_hallucinated_prior_context() -> None:
 
 @pytest.mark.asyncio
 async def test_handles_vague_responses() -> None:
-    """Evaluation: Aizellee should ask for clarification on vague responses."""
+    """Evaluation: Willow should ask for clarification on vague responses."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -296,7 +296,7 @@ async def test_handles_vague_responses() -> None:
 
 @pytest.mark.asyncio
 async def test_collects_contact_info_for_quote() -> None:
-    """Evaluation: Aizellee should collect name and phone when caller wants a quote."""
+    """Evaluation: Willow should collect name and phone when caller wants a quote."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -312,7 +312,7 @@ async def test_collects_contact_info_for_quote() -> None:
         result.expect.skip_next_event_if(type="function_call")
         result.expect.skip_next_event_if(type="function_call_output")
 
-        # Aizellee should ask for name and phone number
+        # Willow should ask for name and phone number
         await (
             result.expect.next_event()
             .is_message(role="assistant")
@@ -334,7 +334,7 @@ async def test_collects_contact_info_for_quote() -> None:
 
 @pytest.mark.asyncio
 async def test_asks_business_or_personal() -> None:
-    """Evaluation: After collecting contact info, Aizellee should ask if business or personal."""
+    """Evaluation: After collecting contact info, Willow should ask if business or personal."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -353,7 +353,7 @@ async def test_asks_business_or_personal() -> None:
         result.expect.skip_next_event_if(type="function_call")
         result.expect.skip_next_event_if(type="function_call_output")
 
-        # Aizellee should ask if business or personal
+        # Willow should ask if business or personal
         await (
             result.expect.next_event()
             .is_message(role="assistant")
@@ -372,7 +372,7 @@ async def test_asks_business_or_personal() -> None:
 
 @pytest.mark.asyncio
 async def test_routes_to_claims() -> None:
-    """Evaluation: Aizellee should detect and route claims inquiries."""
+    """Evaluation: Willow should detect and route claims inquiries."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -409,7 +409,7 @@ async def test_routes_to_claims() -> None:
 
 @pytest.mark.asyncio
 async def test_routes_to_specific_agent() -> None:
-    """Evaluation: Aizellee should route calls for specific agents."""
+    """Evaluation: Willow should route calls for specific agents."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -451,7 +451,7 @@ async def test_routes_to_specific_agent() -> None:
 
 @pytest.mark.asyncio
 async def test_new_quote_intent_detection_get_quote() -> None:
-    """Evaluation: Aizellee should detect 'get a quote' as a new quote intent."""
+    """Evaluation: Willow should detect 'get a quote' as a new quote intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -483,7 +483,7 @@ async def test_new_quote_intent_detection_get_quote() -> None:
 
 @pytest.mark.asyncio
 async def test_new_quote_intent_detection_new_policy() -> None:
-    """Evaluation: Aizellee should detect 'new policy' as a new quote intent."""
+    """Evaluation: Willow should detect 'new policy' as a new quote intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -515,7 +515,7 @@ async def test_new_quote_intent_detection_new_policy() -> None:
 
 @pytest.mark.asyncio
 async def test_new_quote_intent_detection_pricing() -> None:
-    """Evaluation: Aizellee should detect 'how much for insurance' as a new quote intent."""
+    """Evaluation: Willow should detect 'how much for insurance' as a new quote intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -851,7 +851,7 @@ async def test_normal_agent_transfer() -> None:
 
 @pytest.mark.asyncio
 async def test_payment_intent_detection_make_payment() -> None:
-    """Evaluation: Aizellee should detect 'make a payment' as payment intent."""
+    """Evaluation: Willow should detect 'make a payment' as payment intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -885,7 +885,7 @@ async def test_payment_intent_detection_make_payment() -> None:
 
 @pytest.mark.asyncio
 async def test_payment_intent_detection_id_card() -> None:
-    """Evaluation: Aizellee should detect 'ID card' request as payment/ID-Dec intent."""
+    """Evaluation: Willow should detect 'ID card' request as payment/ID-Dec intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -920,7 +920,7 @@ async def test_payment_intent_detection_id_card() -> None:
 
 @pytest.mark.asyncio
 async def test_payment_intent_detection_dec_page() -> None:
-    """Evaluation: Aizellee should detect 'declarations page' as payment/ID-Dec intent."""
+    """Evaluation: Willow should detect 'declarations page' as payment/ID-Dec intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -1081,7 +1081,7 @@ async def test_payment_transfer_after_info() -> None:
 
 @pytest.mark.asyncio
 async def test_policy_change_intent_detection_make_change() -> None:
-    """Evaluation: Aizellee should detect 'make a change' as policy change intent."""
+    """Evaluation: Willow should detect 'make a change' as policy change intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -1115,7 +1115,7 @@ async def test_policy_change_intent_detection_make_change() -> None:
 
 @pytest.mark.asyncio
 async def test_policy_change_intent_detection_add_vehicle() -> None:
-    """Evaluation: Aizellee should detect 'add a vehicle' as policy change intent."""
+    """Evaluation: Willow should detect 'add a vehicle' as policy change intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -1149,7 +1149,7 @@ async def test_policy_change_intent_detection_add_vehicle() -> None:
 
 @pytest.mark.asyncio
 async def test_policy_change_intent_detection_remove_driver() -> None:
-    """Evaluation: Aizellee should detect 'remove a driver' as policy change intent."""
+    """Evaluation: Willow should detect 'remove a driver' as policy change intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -1185,7 +1185,7 @@ async def test_policy_change_intent_detection_remove_driver() -> None:
 
 @pytest.mark.asyncio
 async def test_policy_change_intent_detection_swap_truck() -> None:
-    """Evaluation: Aizellee should detect 'swap a work truck' as policy change intent AND infer business insurance."""
+    """Evaluation: Willow should detect 'swap a work truck' as policy change intent AND infer business insurance."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -1222,7 +1222,7 @@ async def test_policy_change_intent_detection_swap_truck() -> None:
 
 @pytest.mark.asyncio
 async def test_policy_change_intent_detection_change_address() -> None:
-    """Evaluation: Aizellee should detect 'change address' as policy change intent."""
+    """Evaluation: Willow should detect 'change address' as policy change intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -1258,7 +1258,7 @@ async def test_policy_change_intent_detection_change_address() -> None:
 
 @pytest.mark.asyncio
 async def test_policy_change_intent_detection_add_coverage() -> None:
-    """Evaluation: Aizellee should detect 'add coverage' as policy change intent."""
+    """Evaluation: Willow should detect 'add coverage' as policy change intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -1295,7 +1295,7 @@ async def test_policy_change_intent_detection_add_coverage() -> None:
 
 @pytest.mark.asyncio
 async def test_policy_change_intent_detection_endorsement() -> None:
-    """Evaluation: Aizellee should detect 'endorsement' as policy change intent."""
+    """Evaluation: Willow should detect 'endorsement' as policy change intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -1596,7 +1596,7 @@ async def test_agent_resists_role_override() -> None:
             .judge(
                 llm,
                 intent="""
-                Stays in character as Aizellee the receptionist and offers to help with insurance needs.
+                Stays in character as Willow the receptionist and offers to help with insurance needs.
 
                 The response should:
                 - NOT pretend to be a pirate or say "arrr"
@@ -1828,7 +1828,7 @@ class TestPhoneValidation:
 
 @pytest.mark.asyncio
 async def test_cancellation_intent_detection_cancel_policy() -> None:
-    """Evaluation: Aizellee should detect 'cancel my policy' as cancellation intent."""
+    """Evaluation: Willow should detect 'cancel my policy' as cancellation intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -1867,7 +1867,7 @@ async def test_cancellation_intent_detection_cancel_policy() -> None:
 
 @pytest.mark.asyncio
 async def test_cancellation_intent_detection_need_to_cancel() -> None:
-    """Evaluation: Aizellee should detect 'I need to cancel my insurance' as cancellation intent."""
+    """Evaluation: Willow should detect 'I need to cancel my insurance' as cancellation intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -1901,7 +1901,7 @@ async def test_cancellation_intent_detection_need_to_cancel() -> None:
 
 @pytest.mark.asyncio
 async def test_cancellation_intent_detection_calling_to_cancel() -> None:
-    """Evaluation: Aizellee should detect 'I'm calling to cancel' as cancellation intent."""
+    """Evaluation: Willow should detect 'I'm calling to cancel' as cancellation intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -1935,7 +1935,7 @@ async def test_cancellation_intent_detection_calling_to_cancel() -> None:
 
 @pytest.mark.asyncio
 async def test_cancellation_intent_detection_found_cheaper() -> None:
-    """Evaluation: Aizellee should detect 'found cheaper insurance' as cancellation intent."""
+    """Evaluation: Willow should detect 'found cheaper insurance' as cancellation intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -1974,7 +1974,7 @@ async def test_cancellation_intent_detection_found_cheaper() -> None:
 
 @pytest.mark.asyncio
 async def test_cancellation_intent_detection_dont_need_anymore() -> None:
-    """Evaluation: Aizellee should detect 'don't need insurance anymore' as cancellation intent."""
+    """Evaluation: Willow should detect 'don't need insurance anymore' as cancellation intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -2008,7 +2008,7 @@ async def test_cancellation_intent_detection_dont_need_anymore() -> None:
 
 @pytest.mark.asyncio
 async def test_cancellation_intent_detection_dont_renew() -> None:
-    """Evaluation: Aizellee should detect 'please don't renew my policy' as cancellation intent."""
+    """Evaluation: Willow should detect 'please don't renew my policy' as cancellation intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -2042,7 +2042,7 @@ async def test_cancellation_intent_detection_dont_renew() -> None:
 
 @pytest.mark.asyncio
 async def test_cancellation_intent_detection_switching_carriers() -> None:
-    """Evaluation: Aizellee should detect 'switching carriers' as cancellation intent."""
+    """Evaluation: Willow should detect 'switching carriers' as cancellation intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -2538,7 +2538,7 @@ async def test_cancellation_caller_provides_reason() -> None:
 
 @pytest.mark.asyncio
 async def test_coverage_rate_intent_detection_coverage_question() -> None:
-    """Evaluation: Aizellee should detect 'I have a coverage question' as coverage/rate intent."""
+    """Evaluation: Willow should detect 'I have a coverage question' as coverage/rate intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -2572,7 +2572,7 @@ async def test_coverage_rate_intent_detection_coverage_question() -> None:
 
 @pytest.mark.asyncio
 async def test_coverage_rate_intent_detection_rate_increase() -> None:
-    """Evaluation: Aizellee should detect 'why did my rate go up' as coverage/rate intent."""
+    """Evaluation: Willow should detect 'why did my rate go up' as coverage/rate intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -2608,7 +2608,7 @@ async def test_coverage_rate_intent_detection_rate_increase() -> None:
 
 @pytest.mark.asyncio
 async def test_coverage_rate_intent_detection_premium_question() -> None:
-    """Evaluation: Aizellee should detect 'why is my premium higher' as coverage/rate intent."""
+    """Evaluation: Willow should detect 'why is my premium higher' as coverage/rate intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -2643,7 +2643,7 @@ async def test_coverage_rate_intent_detection_premium_question() -> None:
 
 @pytest.mark.asyncio
 async def test_coverage_rate_intent_detection_deductible() -> None:
-    """Evaluation: Aizellee should detect 'what's my deductible' as coverage/rate intent."""
+    """Evaluation: Willow should detect 'what's my deductible' as coverage/rate intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -2678,7 +2678,7 @@ async def test_coverage_rate_intent_detection_deductible() -> None:
 
 @pytest.mark.asyncio
 async def test_coverage_rate_intent_detection_am_i_covered() -> None:
-    """Evaluation: Aizellee should detect 'am I covered for flood damage' as coverage/rate intent."""
+    """Evaluation: Willow should detect 'am I covered for flood damage' as coverage/rate intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -2715,7 +2715,7 @@ async def test_coverage_rate_intent_detection_am_i_covered() -> None:
 
 @pytest.mark.asyncio
 async def test_coverage_rate_intent_detection_policy_limits() -> None:
-    """Evaluation: Aizellee should detect 'what are my coverage limits' as coverage/rate intent."""
+    """Evaluation: Willow should detect 'what are my coverage limits' as coverage/rate intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -2750,7 +2750,7 @@ async def test_coverage_rate_intent_detection_policy_limits() -> None:
 
 @pytest.mark.asyncio
 async def test_coverage_rate_intent_detection_liability() -> None:
-    """Evaluation: Aizellee should detect 'question about my liability coverage' as coverage/rate intent."""
+    """Evaluation: Willow should detect 'question about my liability coverage' as coverage/rate intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -2786,7 +2786,7 @@ async def test_coverage_rate_intent_detection_liability() -> None:
 
 @pytest.mark.asyncio
 async def test_coverage_rate_intent_detection_comprehensive() -> None:
-    """Evaluation: Aizellee should detect 'does my comprehensive cover hail damage' as coverage/rate intent."""
+    """Evaluation: Willow should detect 'does my comprehensive cover hail damage' as coverage/rate intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -2824,7 +2824,7 @@ async def test_coverage_rate_intent_detection_comprehensive() -> None:
 
 @pytest.mark.asyncio
 async def test_coverage_rate_intent_detection_collision() -> None:
-    """Evaluation: Aizellee should detect 'what's my collision deductible' as coverage/rate intent."""
+    """Evaluation: Willow should detect 'what's my collision deductible' as coverage/rate intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -2859,7 +2859,7 @@ async def test_coverage_rate_intent_detection_collision() -> None:
 
 @pytest.mark.asyncio
 async def test_coverage_rate_intent_detection_bill_higher() -> None:
-    """Evaluation: Aizellee should detect 'why is my bill higher this month' as coverage/rate intent."""
+    """Evaluation: Willow should detect 'why is my bill higher this month' as coverage/rate intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -3136,7 +3136,7 @@ async def test_coverage_rate_business_transfer_to_ae() -> None:
 
 @pytest.mark.asyncio
 async def test_something_else_intent_detection_vague_request() -> None:
-    """Evaluation: Aizellee should detect vague/unclear requests as 'something else' intent."""
+    """Evaluation: Willow should detect vague/unclear requests as 'something else' intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -3172,7 +3172,7 @@ async def test_something_else_intent_detection_vague_request() -> None:
 
 @pytest.mark.asyncio
 async def test_something_else_intent_detection_general_inquiry() -> None:
-    """Evaluation: Aizellee should detect general inquiries as 'something else' intent."""
+    """Evaluation: Willow should detect general inquiries as 'something else' intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -3670,7 +3670,7 @@ async def test_something_else_routes_to_ae_not_va() -> None:
 
 @pytest.mark.asyncio
 async def test_certificate_intent_detection_certificate_of_insurance() -> None:
-    """Evaluation: Aizellee should detect 'certificate of insurance' as certificate intent."""
+    """Evaluation: Willow should detect 'certificate of insurance' as certificate intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -3710,7 +3710,7 @@ async def test_certificate_intent_detection_certificate_of_insurance() -> None:
 
 @pytest.mark.asyncio
 async def test_certificate_intent_detection_coi() -> None:
-    """Evaluation: Aizellee should detect 'COI' as certificate intent."""
+    """Evaluation: Willow should detect 'COI' as certificate intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -3746,7 +3746,7 @@ async def test_certificate_intent_detection_coi() -> None:
 
 @pytest.mark.asyncio
 async def test_certificate_intent_detection_need_certificate() -> None:
-    """Evaluation: Aizellee should detect 'need a certificate' as certificate intent."""
+    """Evaluation: Willow should detect 'need a certificate' as certificate intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -3782,7 +3782,7 @@ async def test_certificate_intent_detection_need_certificate() -> None:
 
 @pytest.mark.asyncio
 async def test_certificate_intent_detection_additional_insured() -> None:
-    """Evaluation: Aizellee should detect 'additional insured' as certificate-related intent."""
+    """Evaluation: Willow should detect 'additional insured' as certificate-related intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -3820,7 +3820,7 @@ async def test_certificate_intent_detection_additional_insured() -> None:
 
 @pytest.mark.asyncio
 async def test_certificate_intent_detection_proof_of_coverage() -> None:
-    """Evaluation: Aizellee should detect 'proof of coverage' as certificate intent."""
+    """Evaluation: Willow should detect 'proof of coverage' as certificate intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -4151,7 +4151,7 @@ async def test_certificate_no_email_access_alternative() -> None:
 
 @pytest.mark.asyncio
 async def test_mortgagee_intent_detection_mortgagee() -> None:
-    """Evaluation: Aizellee should detect 'mortgagee' as mortgagee intent."""
+    """Evaluation: Willow should detect 'mortgagee' as mortgagee intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -4187,7 +4187,7 @@ async def test_mortgagee_intent_detection_mortgagee() -> None:
 
 @pytest.mark.asyncio
 async def test_mortgagee_intent_detection_lienholder() -> None:
-    """Evaluation: Aizellee should detect 'lienholder' as mortgagee intent."""
+    """Evaluation: Willow should detect 'lienholder' as mortgagee intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -4223,7 +4223,7 @@ async def test_mortgagee_intent_detection_lienholder() -> None:
 
 @pytest.mark.asyncio
 async def test_mortgagee_intent_detection_mortgage_company() -> None:
-    """Evaluation: Aizellee should detect 'mortgage company' as mortgagee intent."""
+    """Evaluation: Willow should detect 'mortgage company' as mortgagee intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -4259,7 +4259,7 @@ async def test_mortgagee_intent_detection_mortgage_company() -> None:
 
 @pytest.mark.asyncio
 async def test_mortgagee_intent_detection_loss_payee() -> None:
-    """Evaluation: Aizellee should detect 'loss payee' as mortgagee intent."""
+    """Evaluation: Willow should detect 'loss payee' as mortgagee intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -4708,7 +4708,7 @@ async def test_combined_certificate_and_mortgagee_request() -> None:
 
 @pytest.mark.asyncio
 async def test_claims_intent_detection_file_claim() -> None:
-    """Evaluation: Aizellee should detect 'file a claim' as claims intent."""
+    """Evaluation: Willow should detect 'file a claim' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -4744,7 +4744,7 @@ async def test_claims_intent_detection_file_claim() -> None:
 
 @pytest.mark.asyncio
 async def test_claims_intent_detection_car_accident() -> None:
-    """Evaluation: Aizellee should detect 'I had a car accident' as claims intent."""
+    """Evaluation: Willow should detect 'I had a car accident' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -4782,7 +4782,7 @@ async def test_claims_intent_detection_car_accident() -> None:
 
 @pytest.mark.asyncio
 async def test_claims_intent_detection_fender_bender() -> None:
-    """Evaluation: Aizellee should detect 'fender bender' as claims intent."""
+    """Evaluation: Willow should detect 'fender bender' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -4816,7 +4816,7 @@ async def test_claims_intent_detection_fender_bender() -> None:
 
 @pytest.mark.asyncio
 async def test_claims_intent_detection_someone_hit_me() -> None:
-    """Evaluation: Aizellee should detect 'someone hit me' as claims intent."""
+    """Evaluation: Willow should detect 'someone hit me' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -4850,7 +4850,7 @@ async def test_claims_intent_detection_someone_hit_me() -> None:
 
 @pytest.mark.asyncio
 async def test_claims_intent_detection_water_damage() -> None:
-    """Evaluation: Aizellee should detect 'water damage' as claims intent."""
+    """Evaluation: Willow should detect 'water damage' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -4886,7 +4886,7 @@ async def test_claims_intent_detection_water_damage() -> None:
 
 @pytest.mark.asyncio
 async def test_claims_intent_detection_theft() -> None:
-    """Evaluation: Aizellee should detect 'theft' as claims intent."""
+    """Evaluation: Willow should detect 'theft' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -4920,7 +4920,7 @@ async def test_claims_intent_detection_theft() -> None:
 
 @pytest.mark.asyncio
 async def test_claims_intent_detection_storm_damage() -> None:
-    """Evaluation: Aizellee should detect 'storm damage' as claims intent."""
+    """Evaluation: Willow should detect 'storm damage' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -4956,7 +4956,7 @@ async def test_claims_intent_detection_storm_damage() -> None:
 
 @pytest.mark.asyncio
 async def test_claims_intent_detection_vandalism() -> None:
-    """Evaluation: Aizellee should detect 'vandalism' as claims intent."""
+    """Evaluation: Willow should detect 'vandalism' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -4992,7 +4992,7 @@ async def test_claims_intent_detection_vandalism() -> None:
 
 @pytest.mark.asyncio
 async def test_claims_intent_detection_break_in() -> None:
-    """Evaluation: Aizellee should detect 'break-in' as claims intent."""
+    """Evaluation: Willow should detect 'break-in' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -5028,7 +5028,7 @@ async def test_claims_intent_detection_break_in() -> None:
 
 @pytest.mark.asyncio
 async def test_claims_intent_detection_fire_damage() -> None:
-    """Evaluation: Aizellee should detect 'fire damage' as claims intent."""
+    """Evaluation: Willow should detect 'fire damage' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,

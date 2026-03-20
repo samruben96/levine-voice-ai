@@ -28,7 +28,7 @@ def _llm():
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_coverage_rate_intent_detection_coverage_question() -> None:
-    """Evaluation: Aizellee should detect coverage questions."""
+    """Evaluation: Willow should detect coverage questions."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -63,7 +63,7 @@ async def test_coverage_rate_intent_detection_coverage_question() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_coverage_rate_intent_detection_rate_increase() -> None:
-    """Evaluation: Aizellee should detect rate increase questions."""
+    """Evaluation: Willow should detect rate increase questions."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -93,7 +93,7 @@ async def test_coverage_rate_intent_detection_rate_increase() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_coverage_rate_intent_detection_premium_question() -> None:
-    """Evaluation: Aizellee should detect premium questions."""
+    """Evaluation: Willow should detect premium questions."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -123,7 +123,7 @@ async def test_coverage_rate_intent_detection_premium_question() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_coverage_rate_intent_detection_deductible() -> None:
-    """Evaluation: Aizellee should detect deductible questions."""
+    """Evaluation: Willow should detect deductible questions."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -153,7 +153,7 @@ async def test_coverage_rate_intent_detection_deductible() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_coverage_rate_intent_detection_am_i_covered() -> None:
-    """Evaluation: Aizellee should detect 'am I covered' questions."""
+    """Evaluation: Willow should detect 'am I covered' questions."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -183,7 +183,7 @@ async def test_coverage_rate_intent_detection_am_i_covered() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_coverage_rate_intent_detection_policy_limits() -> None:
-    """Evaluation: Aizellee should detect policy limits questions."""
+    """Evaluation: Willow should detect policy limits questions."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -213,7 +213,7 @@ async def test_coverage_rate_intent_detection_policy_limits() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_coverage_rate_intent_detection_bill_higher() -> None:
-    """Evaluation: Aizellee should detect bill questions."""
+    """Evaluation: Willow should detect bill questions."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,

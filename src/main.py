@@ -25,6 +25,7 @@ Download required models::
     uv run python src/main.py download-files
 """
 
+import asyncio
 import logging
 
 from dotenv import load_dotenv
@@ -103,13 +104,13 @@ async def request_fnc(req: JobRequest) -> None:
     Args:
         req: The job request to accept.
     """
-    await req.accept(name="Aizellee", identity="aizellee-agent")
+    await req.accept(name="Willow", identity="willow-agent")
 
 
 server.request_fnc = request_fnc
 
 
-@server.rtc_session(agent_name="Aizellee")
+@server.rtc_session(agent_name="Willow")
 async def my_agent(ctx: JobContext) -> None:
     """Main agent entry point for handling voice sessions.
 
@@ -174,12 +175,12 @@ async def my_agent(ctx: JobContext) -> None:
                 inference.TTS(
                     model="cartesia/sonic-3",
                     voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc",
-                    extra_kwargs={"speed": 0.9},
+                    extra_kwargs={"speed": 0.95},
                 ),
                 inference.TTS(
                     model="cartesia/sonic-3",
                     voice="694f9389-aac1-45b6-b726-9d9369183238",
-                    extra_kwargs={"speed": 0.9},
+                    extra_kwargs={"speed": 0.95},
                 ),
             ]
         ),
@@ -194,15 +195,34 @@ async def my_agent(ctx: JobContext) -> None:
         # - min_endpointing_delay: Reduced from 0.5s default for faster turn completion
         # - max_endpointing_delay: Reduced from 3.0s default to avoid long pauses
         # - min_interruption_duration: Reduced from 0.5s for more responsive interruptions
-        min_endpointing_delay=0.2,
-        max_endpointing_delay=1.0,
-        min_interruption_duration=0.2,
+        min_endpointing_delay=0.3,
+        max_endpointing_delay=1.5,
+        min_interruption_duration=0.3,
         # False interruption handling - prevent background noise from interrupting agent
-        false_interruption_timeout=2.0,
+        false_interruption_timeout=1.5,
         resume_false_interruption=True,
+        # Re-prompt handler: if caller goes silent for 12.5s, gently re-engage
+        user_away_timeout=12.5,
         # Store caller information for the session
         userdata=caller_info,
     )
+
+    # Re-prompt handler for user_away_timeout: if caller goes silent,
+    # gently re-engage (safety net for "blanking out" after short answers)
+    # Store background task references to prevent garbage collection (RUF006)
+    _background_tasks: set = set()
+
+    @session.on("user_state_changed")
+    def _user_state_changed(ev):
+        if ev.new_state == "away":
+            task = asyncio.create_task(
+                session.generate_reply(
+                    instructions="The caller has gone silent. Gently check if they are still there. "
+                    "If you had just asked a question, briefly repeat it."
+                )
+            )
+            _background_tasks.add(task)
+            task.add_done_callback(_background_tasks.discard)
 
     # Subscribe to metrics collection for observability
     @session.on("metrics_collected")

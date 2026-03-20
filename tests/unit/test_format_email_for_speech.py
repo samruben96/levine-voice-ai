@@ -22,7 +22,8 @@ class TestFormatEmailForSpeech:
     def test_format_hlinsure_domain(self):
         """Test hlinsure.com domain is spelled out completely."""
         result = format_email_for_speech("Certificate@hlinsure.com")
-        assert "H-L-I-N-S-U-R-E" in result
+        # Comma-separated letters for TTS pacing
+        assert "H, L, I, N, S, U, R, E" in result
 
     def test_format_empty_string(self):
         """Test empty string returns empty string."""
@@ -37,10 +38,11 @@ class TestFormatEmailForSpeech:
     def test_format_contains_spelled_version(self):
         """Test that result includes both readable and spelled versions."""
         result = format_email_for_speech("info@hlinsure.com")
-        # Should contain spelled out letters
-        assert "I-N-F-O" in result
+        # Should contain comma-separated spelled out letters
+        assert "I, N, F, O" in result
 
     def test_format_certificate_email(self):
         """Test formatting the certificate email address."""
         result = format_email_for_speech("Certificate@hlinsure.com")
-        assert "C-E-R-T-I-F-I-C-A-T-E" in result
+        # Comma-separated letters for TTS pacing
+        assert "C, E, R, T, I, F, I, C, A, T, E" in result

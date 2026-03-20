@@ -232,6 +232,7 @@ class CallerInfo:
         additional_notes: Any additional context or notes
         assigned_agent: Agent assigned via alpha-split routing
         requested_agent_name: Agent name when caller requested a specific agent by name
+        restricted_agent_name: Name of restricted agent for vendor/sales/existing client flow
         pending_ae_redirect: Flag indicating pending redirect to Account Executive
         _handoff_speech_delivered: Internal flag to track if transfer speech was already
             spoken during handoff to prevent duplicate messages (underscore prefix
@@ -251,6 +252,9 @@ class CallerInfo:
     additional_notes: str = ""
     assigned_agent: str | None = None  # Agent assigned via alpha-split
     requested_agent_name: str | None = None  # Agent requested by name
+    restricted_agent_name: str | None = (
+        None  # Restricted agent name for vendor/sales flow
+    )
     pending_ae_redirect: bool = False  # Redirect to AE after collecting info
     # Track if transfer speech was already spoken during handoff to prevent duplicate messages
     _handoff_speech_delivered: bool = False

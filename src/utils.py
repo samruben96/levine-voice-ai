@@ -112,16 +112,16 @@ def mask_email(email: str | None) -> str:
 
 
 def format_email_for_speech(email: str) -> str:
-    """Format email: say naturally first, then spell completely."""
+    """Format email: say naturally first, then spell with comma-separated pauses."""
     if not email or "@" not in email:
         return email
     local, domain = email.split("@")
     domain_name, tld = domain.rsplit(".", 1)
     readable = f"{local} at {domain_name} dot {tld}"
-    local_spelled = "-".join(local.upper())
-    domain_spelled = "-".join(domain_name.upper())
-    spelled = f"{local_spelled} at {domain_spelled} dot {tld}"
-    return f"{readable}. ... Let me spell that out for you: {spelled}."
+    local_spelled = ", ".join(local.upper())
+    domain_spelled = ", ".join(domain_name.upper())
+    spelled = f"{local_spelled}, at, {domain_spelled}, dot, {tld}"
+    return f"{readable}. Let me spell that out for you: {spelled}."
 
 
 def validate_phone(phone: str) -> tuple[bool, str]:

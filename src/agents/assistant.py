@@ -105,17 +105,17 @@ class Assistant(Agent):
         # Determine the greeting instruction based on office status
         if self._is_lunch:
             greeting_instruction = """GREETING (SAY THIS FIRST when you start):
-"Thank you for calling Harry Leveen Insurance. I'm Aizellee, an automated assistant. Our staff is on lunch break right now and we'll be back at 1. How can I help you?"
+"Thank you for calling Harry Leveen Insurance. I'm Willow, an automated assistant. Our staff is on lunch break right now and we'll be back at 1. How can I help you?"
 You may vary the wording slightly but you MUST mention the lunch break and 1 PM return.
 EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, theft, fire, claim), SKIP the greeting and respond with empathy FIRST. Then mention the lunch break after showing empathy."""
         elif self._is_after_hours:
             greeting_instruction = """GREETING (SAY THIS FIRST when you start):
-"Thanks for calling Harry Leveen Insurance. I'm Aizellee, an automated assistant. We're closed now, but open weekdays 9 to 5 Eastern. How can I help with your insurance?"
+"Thanks for calling Harry Leveen Insurance. I'm Willow, an automated assistant. We're closed now, but open weekdays 9 to 5 Eastern. How can I help with your insurance?"
 IMPORTANT: You MUST mention that the office is closed in your first response.
 EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, theft, fire, claim), SKIP the greeting and respond with empathy FIRST. Example: "Oh no, I'm so sorry to hear that. Are you okay?" Then mention office hours briefly after showing empathy."""
         else:
             greeting_instruction = """GREETING (SAY THIS FIRST when you start):
-"Thank you for calling Harry Leveen Insurance. I'm Aizellee, an automated assistant. How can I help you today?"
+"Thank you for calling Harry Leveen Insurance. I'm Willow, an automated assistant. How can I help you today?"
 You may vary the greeting slightly but keep it warm and professional.
 EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, theft, fire, claim), SKIP the greeting and respond with empathy FIRST. Example: "Oh no, I'm so sorry to hear that. Are you okay?" """
 
@@ -673,12 +673,27 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
             agent_name: The name of the agent or extension number the caller requested
         """
         context.userdata.call_intent = CallIntent.SPECIFIC_AGENT
+
+        # Name alias mapping for common spelling variants (apply before storing)
+        name_aliases = {"debbie": "Debi"}
+        agent_name = name_aliases.get(agent_name.strip().lower(), agent_name)
         context.userdata.specific_agent_name = agent_name
+
+        # RACHEL DISAMBIGUATION GUARD: Force disambiguation for "Rachel" (or "Rach")
+        # without a last name — ALWAYS ask which one regardless of context
+        name_stripped = agent_name.strip()
+        name_lower = name_stripped.lower()
+        if name_lower.startswith("rach") and " " not in name_stripped:
+            matches = get_agents_by_name_prefix(name_stripped)
+            if len(matches) > 1:
+                names = " and ".join(m["name"] for m in matches)
+                logger.info(f"Rachel disambiguation forced for '{agent_name}': {names}")
+                return f"We have {names}. Which Rachel would you like to speak with?"
 
         # Look up the agent in staff directory (exact match first)
         agent = get_agent_by_name(agent_name)
 
-        # If no exact match, check for ambiguous names (e.g., "Rachel" matches Rachel T. and Rachel Moreno)
+        # If no exact match, check for ambiguous names
         if not agent:
             matches = get_agents_by_name_prefix(agent_name)
             if len(matches) > 1:
@@ -691,16 +706,28 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
                 agent = matches[0]
 
         if agent:
+            # Check for former/deceased employees FIRST
+            status = agent.get("status")
+            if status in ("deceased", "retired", "former"):
+                message = agent.get(
+                    "message",
+                    f"{agent['name']} is no longer with the agency.",
+                )
+                logger.info(
+                    f"Former employee requested: {agent['name']} (status: {status})"
+                )
+                return f"{message} Is this for business or personal insurance?"
+
             # Check if this agent can receive direct AI transfers
             if not is_transferable(agent["name"]):
-                # Jason L. and Fred are not available for direct transfers
+                # Restricted agents (Jason L., Fred) — ask three-way question
                 logger.info(
-                    f"Restricted transfer requested: {agent['name']} - offering to take message"
+                    f"Restricted transfer requested: {agent['name']} - asking caller type"
                 )
+                context.userdata.restricted_agent_name = agent["name"]
                 return (
-                    f"{agent.get('pronunciation', agent['name'])} isn't available for a direct transfer right now. "
-                    "I can take a message for them, or would you like me to connect you "
-                    "with someone else who may be able to help?"
+                    f"{agent.get('pronunciation', agent['name'])} isn't available for direct calls. "
+                    "Are you an existing client, looking to become a client, or is this a vendor or sales call?"
                 )
 
             # For ALL transferable agents, ask what the call is about
@@ -714,6 +741,47 @@ EXCEPTION: If the caller's first message is DISTRESSING (accident, break-in, the
                 f"Agent not found in directory: {mask_name(agent_name) if agent_name else 'empty'}"
             )
             return "I'm not finding that name in our directory. Could you double-check the name for me?"
+
+    @function_tool
+    async def handle_restricted_agent_response(
+        self,
+        context: RunContext[CallerInfo],
+        caller_type: str,
+    ) -> str:
+        """Handle the caller's response after asking if they're an existing client, new client, or vendor.
+
+        Call this AFTER route_call_specific_agent returned a three-way question for a restricted agent
+        and the caller has indicated their caller type.
+
+        Args:
+            caller_type: One of "existing_client", "new_client", or "vendor_sales"
+        """
+        restricted_name = getattr(context.userdata, "restricted_agent_name", "unknown")
+        logger.info(
+            f"Restricted agent response for {restricted_name}: caller_type={caller_type}"
+        )
+
+        if caller_type == "vendor_sales":
+            email = format_email_for_speech("Info@HLInsure.com")
+            return (
+                f"All vendor and sales inquiries should be submitted by email to {email}. "
+                "Is there anything else I can help you with?"
+            )
+        elif caller_type == "new_client":
+            return (
+                "I'd be happy to connect you with one of our sales agents. "
+                "Is this for business or personal insurance?"
+            )
+        elif caller_type == "existing_client":
+            return (
+                "I can connect you with the right team member. "
+                "Is this for business or personal insurance?"
+            )
+        else:
+            return (
+                "I'm sorry, could you clarify — are you an existing client, "
+                "looking to become a client, or is this a vendor or sales call?"
+            )
 
     @function_tool
     async def complete_specific_agent_transfer(

@@ -29,7 +29,7 @@ def _llm():
 @pytest.mark.slow
 @pytest.mark.smoke
 async def test_payment_intent_detection_make_payment() -> None:
-    """Evaluation: Aizellee should detect 'make a payment' as payment intent."""
+    """Evaluation: Willow should detect 'make a payment' as payment intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -64,7 +64,7 @@ async def test_payment_intent_detection_make_payment() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_payment_intent_detection_id_card() -> None:
-    """Evaluation: Aizellee should detect 'need my ID card' as payment/ID intent."""
+    """Evaluation: Willow should detect 'need my ID card' as payment/ID intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -99,7 +99,7 @@ async def test_payment_intent_detection_id_card() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_payment_intent_detection_dec_page() -> None:
-    """Evaluation: Aizellee should detect 'declarations page' as payment/ID intent."""
+    """Evaluation: Willow should detect 'declarations page' as payment/ID intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -137,7 +137,7 @@ async def test_payment_intent_detection_dec_page() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_payment_intent_detection_pay_bill() -> None:
-    """Evaluation: Aizellee should detect 'pay my bill' as payment intent."""
+    """Evaluation: Willow should detect 'pay my bill' as payment intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -172,7 +172,7 @@ async def test_payment_intent_detection_pay_bill() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_payment_intent_detection_proof_of_insurance() -> None:
-    """Evaluation: Aizellee should detect 'proof of insurance' as payment/ID intent."""
+    """Evaluation: Willow should detect 'proof of insurance' as payment/ID intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,

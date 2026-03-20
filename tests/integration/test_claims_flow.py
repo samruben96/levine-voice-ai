@@ -61,7 +61,7 @@ async def test_claims_single_acknowledgment() -> None:
 @pytest.mark.slow
 @pytest.mark.smoke
 async def test_claims_intent_detection_file_claim() -> None:
-    """Evaluation: Aizellee should detect 'file a claim' as claims intent."""
+    """Evaluation: Willow should detect 'file a claim' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -94,7 +94,7 @@ async def test_claims_intent_detection_file_claim() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_claims_intent_detection_car_accident() -> None:
-    """Evaluation: Aizellee should detect 'car accident' as claims intent."""
+    """Evaluation: Willow should detect 'car accident' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -131,7 +131,7 @@ async def test_claims_intent_detection_car_accident() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_claims_intent_detection_fender_bender() -> None:
-    """Evaluation: Aizellee should detect 'fender bender' as claims intent."""
+    """Evaluation: Willow should detect 'fender bender' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -161,7 +161,7 @@ async def test_claims_intent_detection_fender_bender() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_claims_intent_detection_someone_hit_me() -> None:
-    """Evaluation: Aizellee should detect 'someone hit me' as claims intent."""
+    """Evaluation: Willow should detect 'someone hit me' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -191,7 +191,7 @@ async def test_claims_intent_detection_someone_hit_me() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_claims_intent_detection_water_damage() -> None:
-    """Evaluation: Aizellee should detect 'water damage' as claims intent."""
+    """Evaluation: Willow should detect 'water damage' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -223,7 +223,7 @@ async def test_claims_intent_detection_water_damage() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_claims_intent_detection_theft() -> None:
-    """Evaluation: Aizellee should detect 'theft' as claims intent."""
+    """Evaluation: Willow should detect 'theft' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -253,7 +253,7 @@ async def test_claims_intent_detection_theft() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_claims_intent_detection_storm_damage() -> None:
-    """Evaluation: Aizellee should detect 'storm damage' as claims intent."""
+    """Evaluation: Willow should detect 'storm damage' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -283,7 +283,7 @@ async def test_claims_intent_detection_storm_damage() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_claims_intent_detection_fire_damage() -> None:
-    """Evaluation: Aizellee should detect 'fire damage' as claims intent."""
+    """Evaluation: Willow should detect 'fire damage' as claims intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,

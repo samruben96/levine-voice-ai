@@ -71,12 +71,12 @@ class TestAssistantBusinessHoursContext:
         assert "9 AM to 5 PM" in assistant.instructions
 
     def test_assistant_instructions_contain_receptionist_identity(self):
-        """Test that instructions establish Aizellee identity."""
+        """Test that instructions establish Willow identity."""
         assistant = Assistant()
 
         # Should establish the receptionist identity
         assert (
-            "Aizellee" in assistant.instructions
+            "Willow" in assistant.instructions
             or "receptionist" in assistant.instructions.lower()
         )
 

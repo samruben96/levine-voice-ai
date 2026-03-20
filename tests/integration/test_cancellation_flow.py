@@ -28,7 +28,7 @@ def _llm():
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_cancellation_intent_detection_cancel_policy() -> None:
-    """Evaluation: Aizellee should detect 'cancel my policy' as cancellation intent."""
+    """Evaluation: Willow should detect 'cancel my policy' as cancellation intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -66,7 +66,7 @@ async def test_cancellation_intent_detection_cancel_policy() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_cancellation_intent_detection_need_to_cancel() -> None:
-    """Evaluation: Aizellee should detect 'I need to cancel my insurance' as cancellation intent."""
+    """Evaluation: Willow should detect 'I need to cancel my insurance' as cancellation intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -99,7 +99,7 @@ async def test_cancellation_intent_detection_need_to_cancel() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_cancellation_intent_detection_calling_to_cancel() -> None:
-    """Evaluation: Aizellee should detect 'I'm calling to cancel' as cancellation intent."""
+    """Evaluation: Willow should detect 'I'm calling to cancel' as cancellation intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -132,7 +132,7 @@ async def test_cancellation_intent_detection_calling_to_cancel() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_cancellation_intent_detection_found_cheaper() -> None:
-    """Evaluation: Aizellee should detect 'found cheaper insurance' as cancellation intent."""
+    """Evaluation: Willow should detect 'found cheaper insurance' as cancellation intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -170,7 +170,7 @@ async def test_cancellation_intent_detection_found_cheaper() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_cancellation_intent_detection_dont_need_anymore() -> None:
-    """Evaluation: Aizellee should detect 'don't need insurance anymore' as cancellation intent."""
+    """Evaluation: Willow should detect 'don't need insurance anymore' as cancellation intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -203,7 +203,7 @@ async def test_cancellation_intent_detection_dont_need_anymore() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_cancellation_intent_detection_dont_renew() -> None:
-    """Evaluation: Aizellee should detect 'please don't renew my policy' as cancellation intent."""
+    """Evaluation: Willow should detect 'please don't renew my policy' as cancellation intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -236,7 +236,7 @@ async def test_cancellation_intent_detection_dont_renew() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_cancellation_intent_detection_switching_carriers() -> None:
-    """Evaluation: Aizellee should detect 'switching carriers' as cancellation intent."""
+    """Evaluation: Willow should detect 'switching carriers' as cancellation intent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,

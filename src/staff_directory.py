@@ -82,6 +82,8 @@ class StaffMember(TypedDict, total=False):
     transferable: bool
     languages: list[str]  # e.g., ["en", "es"]
     pronunciation: str  # Phonetic/display name for TTS (e.g., "Al" for "Alberto")
+    status: str  # "active", "retired", "deceased", "former"
+    message: str  # Custom message for former/deceased employees
 
 
 class RingGroup(TypedDict):
@@ -236,11 +238,31 @@ STAFF_DIRECTORY: StaffDirectoryConfig = {
             "transferable": False,
         },
         {
-            "department": "Staff",
+            "department": "Former",
             "name": "Debi",
             "assigned": "",
             "ext": "",
             "transferable": False,
+            "status": "retired",
+            "message": "Debi has retired from the agency. But I'm happy to connect you with another team member.",
+        },
+        {
+            "department": "Former",
+            "name": "Harry",
+            "assigned": "",
+            "ext": "",
+            "transferable": False,
+            "status": "deceased",
+            "message": "I'm sorry, Harry is no longer with us. But I'm happy to connect you with another team member.",
+        },
+        {
+            "department": "Former",
+            "name": "Rosa",
+            "assigned": "",
+            "ext": "",
+            "transferable": False,
+            "status": "retired",
+            "message": "Rosa has retired from the agency. But I'm happy to connect you with another team member.",
         },
     ],
     "restrictedTransfers": ["Jason L.", "Fred"],

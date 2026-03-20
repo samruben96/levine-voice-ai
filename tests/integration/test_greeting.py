@@ -22,7 +22,7 @@ def _llm():
 @pytest.mark.slow
 @pytest.mark.smoke
 async def test_receptionist_greeting() -> None:
-    """Evaluation of Aizellee's greeting as Harry Levine Insurance receptionist."""
+    """Evaluation of Willow's greeting as Harry Levine Insurance receptionist."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -32,7 +32,7 @@ async def test_receptionist_greeting() -> None:
         # Run an agent turn following the user's greeting (simulating an incoming call)
         result = await session.run(user_input="Hello")
 
-        # Evaluate that Aizellee greets as an insurance agency receptionist
+        # Evaluate that Willow greets as an insurance agency receptionist
         await (
             result.expect.next_event()
             .is_message(role="assistant")
@@ -61,7 +61,7 @@ async def test_receptionist_greeting() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_handles_policy_questions_appropriately() -> None:
-    """Evaluation of Aizellee's ability to handle specific policy questions by directing to an agent."""
+    """Evaluation of Willow's ability to handle specific policy questions by directing to an agent."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -73,7 +73,7 @@ async def test_handles_policy_questions_appropriately() -> None:
             user_input="What's the deductible on my auto insurance policy?"
         )
 
-        # Evaluate that Aizellee appropriately starts collecting contact info or defers to agent
+        # Evaluate that Willow appropriately starts collecting contact info or defers to agent
         await (
             result.expect.next_event()
             .is_message(role="assistant")
@@ -97,7 +97,7 @@ async def test_handles_policy_questions_appropriately() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_answers_general_insurance_questions() -> None:
-    """Evaluation of Aizellee's ability to answer general questions about insurance services."""
+    """Evaluation of Willow's ability to answer general questions about insurance services."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -107,7 +107,7 @@ async def test_answers_general_insurance_questions() -> None:
         # Run an agent turn following a general insurance question
         result = await session.run(user_input="What types of insurance do you offer?")
 
-        # Evaluate that Aizellee provides helpful information about available services
+        # Evaluate that Willow provides helpful information about available services
         await (
             result.expect.next_event()
             .is_message(role="assistant")
@@ -138,7 +138,7 @@ async def test_answers_general_insurance_questions() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_provides_office_hours() -> None:
-    """Evaluation of Aizellee's ability to provide office hours and location."""
+    """Evaluation of Willow's ability to provide office hours and location."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -148,7 +148,7 @@ async def test_provides_office_hours() -> None:
         # Run an agent turn following a question about office hours
         result = await session.run(user_input="What are your hours?")
 
-        # Evaluate that Aizellee provides accurate office hours (may use function tool)
+        # Evaluate that Willow provides accurate office hours (may use function tool)
         # Skip any function calls that may occur
         result.expect.skip_next_event_if(type="function_call")
         result.expect.skip_next_event_if(type="function_call_output")
@@ -175,7 +175,7 @@ async def test_provides_office_hours() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_stays_on_topic() -> None:
-    """Evaluation of Aizellee's ability to redirect off-topic requests back to insurance services."""
+    """Evaluation of Willow's ability to redirect off-topic requests back to insurance services."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -187,7 +187,7 @@ async def test_stays_on_topic() -> None:
             user_input="Can you help me book a flight to Hawaii?"
         )
 
-        # Evaluate that Aizellee politely redirects to insurance topics
+        # Evaluate that Willow politely redirects to insurance topics
         await (
             result.expect.next_event()
             .is_message(role="assistant")
@@ -218,7 +218,7 @@ async def test_stays_on_topic() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_no_hallucinated_prior_context() -> None:
-    """Evaluation: Aizellee should NEVER reference prior conversations that don't exist."""
+    """Evaluation: Willow should NEVER reference prior conversations that don't exist."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,
@@ -279,7 +279,7 @@ async def test_no_hallucinated_prior_context() -> None:
 @pytest.mark.integration
 @pytest.mark.slow
 async def test_handles_vague_responses() -> None:
-    """Evaluation: Aizellee should ask for clarification on vague responses."""
+    """Evaluation: Willow should ask for clarification on vague responses."""
     async with (
         _llm() as llm,
         AgentSession[CallerInfo](llm=llm, userdata=CallerInfo()) as session,

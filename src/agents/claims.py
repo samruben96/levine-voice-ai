@@ -62,13 +62,13 @@ class ClaimsAgent(Agent):
             # During business hours, the transfer is executed directly in on_enter()
             # without LLM involvement. These instructions are minimal fallback.
             instructions = compose_instructions(
-                "You are Aizellee, handling a claims call during business hours.",
+                "You are Willow, handling a claims call during business hours.",
                 "The caller has been connected to handle the claim. Stay silent unless they speak to you.",
                 SECURITY_INSTRUCTIONS,
             )
         else:
             instructions = compose_instructions(
-                "You are Aizellee, helping a caller file a claim after hours.",
+                "You are Willow, helping a caller file a claim after hours.",
                 "GOAL: Explain we're closed but help find their carrier's claims number. The caller already heard empathy from the receptionist - do NOT repeat it.",
                 """TONE:
 - Stay warm, caring, and supportive throughout (the caller had a distressing experience)
