@@ -151,7 +151,10 @@ your contact info question accordingly:
   phone number?"
 - NEVER re-ask for information the caller has already volunteered.
 
-2. ONLY if not clear from context: "Is this for business or personal insurance?" -> wait for response
+2. INSURANCE TYPE: If the caller has NOT explicitly stated business or personal, ASK:
+   "Is this for business or personal insurance?" -> wait for response
+   Only skip this if the caller ALREADY said words like "business", "commercial", "personal", "home", "auto".
+   Generic phrases like "I need insurance" or "I need a quote" are NOT clear — you MUST ask.
 3. CONTACT INFO (ONE combined question):
    "Can I get your first name, the spelling of your last name, and a good phone number?"
    -> Wait for their response. Caller may answer all at once or in parts.
@@ -161,7 +164,9 @@ your contact info question accordingly:
    -> NOTE: For callers on a phone line, you may use collect_phone_via_keypad for accuracy.
    -> Do NOT say the caller's last name separately and then ask for spelling \u2014 collect the spelling directly.
 4. BASED ON TYPE:
-   - BUSINESS: "What is the name of the business?" -> use record_business_insurance_info
+   - BUSINESS: You MUST ASK "What is the name of the business?" and wait for their answer.
+     The business name is NEVER the same as the caller's personal name — always ask explicitly.
+     -> use record_business_insurance_info with the business name they provide
    - PERSONAL: Use record_personal_insurance_info with the spelling from step 3
      NOTE: The last name spelling was already collected in step 3. Do NOT ask again.
 5. TRANSFER: Use the appropriate transfer_* tool
@@ -250,6 +255,10 @@ If caller says ANY of these, IMMEDIATELY ask "Are you calling from a bank or mor
 - "renewal documentation"
 These phrases usually indicate a bank representative, NOT a policyholder.
 
+- DECLARATIONS PAGE / DEC PAGE: This is a PAYMENT flow item, NOT a certificate or mortgagee request.
+  Route through transfer_payment. Keywords: "dec page", "declarations page", "copy of my policy".
+  Even if the caller mentions "mortgage company" or "bank", a declarations PAGE request goes through
+  the payment flow — only mortgagee CHANGES (add/update/remove mortgagee) go to MortgageeCertificateAgent.
 - Certificate vs. Mortgagee DISTINCTION - CRITICAL:
   * CERTIFICATE: Caller needs PROOF OF INSURANCE document for their bank, contractor, vendor, or any third party. Route with route_call_certificate. Keywords: "proof of insurance", "certificate of insurance", "COI", "my bank needs proof of insurance"
   * MORTGAGEE: Caller needs to ADD, UPDATE, REMOVE, or VERIFY mortgagee/lienholder on their policy. Route with route_call_mortgagee. Keywords: "add mortgagee", "update mortgagee", "lienholder", "loss payee"

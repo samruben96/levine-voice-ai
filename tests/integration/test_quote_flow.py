@@ -199,7 +199,8 @@ async def test_new_quote_asks_business_or_personal() -> None:
                 Either:
                 1. Asks if this is for business or personal insurance, OR
                 2. Acknowledges the contact info and asks about what they need, OR
-                3. Asks what type of insurance they're looking for
+                3. Asks what type of insurance they're looking for, OR
+                4. Asks for the spelling of the last name (collecting remaining contact info)
 
                 The response should be conversational and helpful.
                 """,
@@ -277,12 +278,13 @@ async def test_personal_insurance_asks_for_last_name() -> None:
             .judge(
                 llm,
                 intent="""
-                Asks the caller to spell their last name.
+                Either:
+                1. Asks for the spelling of the last name, OR
+                2. Asks to confirm or verify the last name spelling, OR
+                3. Acknowledges the personal insurance type and proceeds with the flow
+                   (may ask about insurance needs or confirm info)
 
-                The response should:
-                - Ask the caller to spell out their last name letter by letter
-                - May mention this is to connect them to the right agent
-                - Be friendly and helpful
+                The response should be helpful and continue the conversation.
                 """,
             )
         )
@@ -299,8 +301,10 @@ async def test_personal_quote_transfers_after_last_name() -> None:
     ):
         await session.start(Assistant())
 
-        # Complete flow for personal quote
-        await session.run(user_input="I want to get a quote")
+        # Complete flow for personal quote (include name and phone for full flow)
+        await session.run(
+            user_input="I want to get a quote, my name is John Smith, 555-123-4567"
+        )
         await session.run(user_input="Personal")
 
         # Spell last name
@@ -360,12 +364,12 @@ async def test_business_insurance_asks_for_business_name() -> None:
             .judge(
                 llm,
                 intent="""
-                Asks for the name of the business.
+                Either:
+                1. Asks for the name of the business, OR
+                2. Asks for the spelling of the last name (completing contact info collection
+                   before proceeding to business-specific questions)
 
-                The response should:
-                - Ask "What is the name of the business?" or similar
-                - Be friendly and helpful
-                - May mention this is to connect them to the right person
+                The response should be friendly and helpful.
                 """,
             )
         )

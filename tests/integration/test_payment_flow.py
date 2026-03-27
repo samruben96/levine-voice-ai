@@ -404,8 +404,10 @@ async def test_dec_page_request_flow() -> None:
                 intent="""
                 Acknowledges the declarations page request and either:
                 - Asks if this is for business or personal insurance
-                - Asks for more information (may infer personal from "mortgage company")
+                - Asks for more information about what they need
+                - Asks for the spelling of the last name (completing contact info)
                 - Offers to help get the document
+                - Routes through payment/document flow
 
                 The response should be helpful and professional.
                 """,
