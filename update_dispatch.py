@@ -30,7 +30,7 @@ async def main():
         room_config=api.RoomConfiguration(
             agents=[
                 api.RoomAgentDispatch(
-                    agent_name="Aizellee",
+                    agent_name="Willow",
                 )
             ]
         ),
